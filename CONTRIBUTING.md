@@ -62,8 +62,16 @@ permissions.
 
 A conventional commit on `main` opens a release pull request through
 release-please, which bumps `version` in `herdr-plugin.toml` and writes the
-changelog. Merging it tags the release, and the release workflow cross-compiles
-all four platforms, writes `SHA256SUMS` and attaches them.
+changelog. Merging it tags the release, and the build job in the same workflow
+cross-compiles all four platforms, writes `SHA256SUMS` and attaches them.
+
+The build runs inside the release-please workflow rather than in one listening
+for the tag. GitHub does not start a workflow from an event created with
+`GITHUB_TOKEN`, so a tag that release-please pushes never fires an
+`on: push: tags` trigger. That is how v0.1.0 came to be tagged and released
+carrying no binaries, which sends every install to a source build. A tag pushed
+by hand does fire, and `release.yml` covers that case; both call the same
+reusable `build-release.yml`.
 
 Three places carry the version and must agree: the git tag, `herdr-plugin.toml`,
 and the download URL `scripts/install.sh` builds from it. The release workflow
