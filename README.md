@@ -9,18 +9,18 @@ Herdr's own sidebar cannot produce on its own.
 ```
  agents · last message
  12 items
-▌  now  herdr-switcher-plus                  ● working
-▌       ‹ [Bash]
-   24m  platform ⑂ auth-service      ○ idle
-        ‹ Saved into the existing GitHub auth memory rather than a second file…
-    6h  web-client  @redesign-nav ○ idle
-        › Authentication successful. Connected to the a vendor Docs MCP.
-    1d  platform ⑂ lint-rules            ○ idle
-        ‹ Saved that to project memory — it is a standing constraint, not a de…
-    2d  dotfiles                           ○ idle
-        › /install-app
-    2d  infra-terraform / nix                     ○ idle
-        ‹ The dashboard is republished in place: https://claude.ai/code/arti…
+▌ now  herdr-switcher-plus                  ● working
+▌      ‹ [Bash]
+  24m  platform ⑂ auth-service      ○ idle
+       ‹ Saved into the existing GitHub auth memory rather than a second file…
+   6h  web-client  @redesign-nav ○ idle
+       › Authentication successful. Connected to the a vendor Docs MCP.
+   1d  platform ⑂ lint-rules            ○ idle
+       ‹ Saved that to project memory — it is a standing constraint, not a de…
+   2d  dotfiles                           ○ idle
+       › /install-app
+   2d  infra-terraform / nix                     ○ idle
+       ‹ The dashboard is republished in place: https://claude.ai/code/arti…
 
  ↑/k up • ↓/j down • / filter • enter jump • s/S sort • r refresh • q quit
 ```

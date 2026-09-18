@@ -21,6 +21,12 @@ const (
 	labelMaxWidth = 38
 )
 
+// ageMinWidth fits "now", the longest age that is not a number plus a unit.
+// The column grows past it only when a row actually needs more, so the gap
+// between the selection bar and the age stays one column for the widest age on
+// screen rather than being padded out to a fixed size.
+const ageMinWidth = 3
+
 // Colors are ANSI indexes so the switcher follows whatever palette the
 // terminal already uses. Only the selection background is a hex value,
 // because it has to match Herdr's own overlays rather than the terminal.
@@ -96,9 +102,10 @@ type item struct {
 	row agentRow
 	now time.Time
 
-	// labelWidth is shared by every item in one list so the status column
-	// lines up down the pane.
+	// labelWidth and ageWidth are shared by every item in one list so the
+	// columns line up down the pane.
 	labelWidth int
+	ageWidth   int
 }
 
 // FilterValue drives the type-to-filter search. Status, agent kind, repository
@@ -242,11 +249,24 @@ func (m *Model) setStatus(status agents.StatusFilter) {
 func toItems(rows []agents.Row) []list.Item {
 	now := time.Now()
 	width := labelColumnWidth(rows)
+	ageWidth := ageColumnWidth(rows, now)
 	out := make([]list.Item, len(rows))
 	for i, r := range rows {
-		out[i] = item{row: r, now: now, labelWidth: width}
+		out[i] = item{row: r, now: now, labelWidth: width, ageWidth: ageWidth}
 	}
 	return out
+}
+
+// ageColumnWidth measures the widest age on screen, so the column never pads
+// beyond what some row needs.
+func ageColumnWidth(rows []agents.Row, now time.Time) int {
+	width := ageMinWidth
+	for _, r := range rows {
+		if n := len([]rune(r.Age(now))); n > width {
+			width = n
+		}
+	}
+	return width
 }
 
 // labelColumnWidth measures the widest label and clamps it, so the column
