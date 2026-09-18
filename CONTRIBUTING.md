@@ -53,6 +53,13 @@ details, along with the two ways an assertion on rendered output goes wrong.
 
 ## Releasing
 
+GitHub blocks Actions from opening pull requests by default, and the workflow's
+own `pull-requests: write` permission does not override it. Without the repo
+setting, release-please builds the whole release branch and then fails at the
+final step with "GitHub Actions is not permitted to create or approve pull
+requests". Enable it once, under Settings, Actions, General, Workflow
+permissions.
+
 A conventional commit on `main` opens a release pull request through
 release-please, which bumps `version` in `herdr-plugin.toml` and writes the
 changelog. Merging it tags the release, and the release workflow cross-compiles
