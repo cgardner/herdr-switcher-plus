@@ -47,7 +47,7 @@ func fixture() []agents.Row {
 
 func newModel(t *testing.T) Model {
 	t.Helper()
-	return sized(New(fixture(), agents.ModeRecent, agents.StatusAll), 100, 24)
+	return sized(New(fixture(), agents.ModeRecent, agents.StatusAll, DefaultSpec), 100, 24)
 }
 
 func paneIDs(m Model) []string {
@@ -75,7 +75,7 @@ func TestNewSortsAndTitles(t *testing.T) {
 func TestNewDoesNotMutateTheCallerSlice(t *testing.T) {
 	rows := fixture()
 	first := rows[1].Agent.PaneID
-	New(rows, agents.ModeName, agents.StatusAll)
+	New(rows, agents.ModeName, agents.StatusAll, DefaultSpec)
 	if rows[1].Agent.PaneID != first {
 		t.Error("New reordered the caller's slice")
 	}
@@ -249,7 +249,7 @@ func TestViewRendersRows(t *testing.T) {
 }
 
 func TestInitIssuesNoCommand(t *testing.T) {
-	if New(nil, agents.ModeRecent, agents.StatusAll).Init() != nil {
+	if New(nil, agents.ModeRecent, agents.StatusAll, DefaultSpec).Init() != nil {
 		t.Error("Init must issue no command")
 	}
 }
@@ -297,17 +297,10 @@ func TestGlyphAndColorHelpers(t *testing.T) {
 	if glyph("working") != "●" || glyph("blocked") != "●" {
 		t.Error("active states use the filled glyph")
 	}
-	now := time.Now()
-	fresh := testRow("p", "s", "idle", "t", time.Minute)
-	stale := testRow("p", "s", "idle", "t", 48*time.Hour)
-	none := agents.Row{}
-	if ageColorFor(fresh, now, false) != accentColor {
-		t.Error("a recent age should use the accent color")
-	}
-	if ageColorFor(stale, now, false) != staleColor {
-		t.Error("a stale age should be dim")
-	}
-	if ageColorFor(none, now, true) != selectedDimColor {
+	// The age bands themselves are covered by TestAgeColourBands. What matters
+	// here is that a dim value steps up on the selection bar, where the usual
+	// gray loses contrast.
+	if ageColorFor(agents.Row{}, time.Now(), true) != selectedDimColor {
 		t.Error("on the bar a dim value should step up")
 	}
 	if textColorFor(false) != "" || textColorFor(true) != selectedTextColor {

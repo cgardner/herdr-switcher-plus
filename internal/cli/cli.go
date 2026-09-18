@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cgardner/herdr-switcher-plus/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/config"
 	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
 	"github.com/cgardner/herdr-switcher-plus/internal/state"
 	"github.com/cgardner/herdr-switcher-plus/internal/ui"
@@ -20,10 +21,11 @@ import (
 // The effects Run performs, as package variables so tests can observe them
 // without a Herdr server or a terminal.
 var (
-	collect  = agents.Collect
-	loadMode = state.LoadMode
-	saveMode = state.SaveMode
-	focus    = herdr.Focus
+	collect    = agents.Collect
+	loadConfig = func() (config.Config, error) { return config.Load(ui.KnownToken) }
+	loadMode   = state.LoadMode
+	saveMode   = state.SaveMode
+	focus      = herdr.Focus
 
 	runProgram = runTea
 
@@ -54,6 +56,10 @@ func runTea(m ui.Model) (ui.Model, error) {
 // a released binary can state which build it is. See the Makefile.
 var version = "dev"
 
+// defaultConfig reads the plugin config, validating token names against the
+// registry so an unknown name is reported with its row number.
+func defaultConfig() (config.Config, error) { return config.Load(ui.KnownToken) }
+
 // modeEnv carries a starting sort from an action. A plugin pane entrypoint has
 // one fixed command, so `herdr plugin pane open --env` is the only way an
 // action can ask that command for a different ordering.
@@ -79,6 +85,15 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	mode := resolveMode(*sortFlag)
 	status := agents.ParseStatus(*statusFlag)
 
+	// A malformed config stops the switcher rather than silently reverting to
+	// the built-in layout, which would leave the user staring at an unchanged
+	// pane with no idea why their file did nothing.
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		return 1
+	}
+
 	rows, err := collect()
 	if err != nil {
 		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
@@ -91,7 +106,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	final, err := runProgram(ui.New(rows, mode, status))
+	final, err := runProgram(ui.New(rows, mode, status, cfg.UI.Spec))
 	if err != nil {
 		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
 		return 1

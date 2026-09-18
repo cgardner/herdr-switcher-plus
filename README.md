@@ -54,6 +54,70 @@ pane's repository, so covering every space would mean one call per repository.
 Reading `.git/HEAD` in each checkout answers them all at once, in about 2 ms
 across seventeen spaces.
 
+## Configuring the layout
+
+The layout is configurable in Herdr's own vocabulary. Its agents sidebar takes
+`rows = [["state_icon", "workspace"], ["agent"]]`, where an entry is a token
+name or a `{ token, fg, bold, dim, rules }` table. This uses the same language,
+so anything you know from configuring the sidebar applies here.
+
+Settings live in `config.toml` inside the directory that
+`herdr plugin config-dir cgardner.herdr-switcher-plus` prints.
+`example-config.toml` in this repository documents every token and ships
+worked examples.
+
+```toml
+[ui]
+rows = [
+  ["age", "label", "state_icon", "state_text"],
+  ["role", "message"],
+]
+```
+
+That is the built-in layout written out: the default is expressed in the same
+language a user would write, not a special case the config cannot reproduce.
+
+Tokens: `age`, `label`, `space`, `repo`, `branch`, `state_icon`, `state_text`,
+`agent`, `pane`, `cwd`, `terminal_title`, `role`, `message`. Columns size
+themselves to their content, and a row after the first hangs under the first
+row's second column so a message sits below the name it belongs to.
+
+Rules are ordered and the first match wins, using `equals`, `contains`,
+`starts_with`, `gt` or `lt`, with optional `ignore_case`:
+
+```toml
+rows = [
+  [ "age", "label", "state_icon",
+    { token = "state_text", rules = [
+        { equals = "blocked", fg = "#ff6188", bold = true },
+        { equals = "working", fg = "#f9e2af" },
+    ]} ],
+  [ "role", "message" ],
+]
+```
+
+`gt` and `lt` compare a token's numeric value. Only `age` has one, in minutes,
+which is what lets a rule say "older than a day".
+
+A missing config file is normal and means the built-in layout. A malformed one
+stops the switcher with the file, the row and the problem named, because
+falling back silently would leave you staring at an unchanged pane.
+
+## Age colours
+
+The age grades itself from live to abandoned, which is the distinction most
+worth seeing in a list sorted by recency:
+
+| age | colour |
+|---|---|
+| under a day | green |
+| under a week | yellow |
+| older, or unknown | muted grey |
+
+An unresolved age counts as the oldest, because not knowing when a session last
+spoke is not evidence that it spoke recently. The bands are ordinary rules and
+`example-config.toml` shows how to change them.
+
 ## Sort modes
 
 `s` cycles forward and `S` cycles back. The mode is remembered for the next

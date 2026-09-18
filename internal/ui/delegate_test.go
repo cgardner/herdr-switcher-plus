@@ -34,8 +34,8 @@ func testRow(pane, space, status, text string, age time.Duration) agents.Row {
 
 func render(t *testing.T, width int, selected int, rows ...agents.Row) []string {
 	t.Helper()
-	d := delegate{selectionBg: lipgloss.Color("#313244")}
-	l := list.New(toItems(rows), d, width, 20)
+	d := delegate{spec: DefaultSpec, selectionBg: lipgloss.Color("#313244")}
+	l := list.New(toItems(rows, DefaultSpec), d, width, 20)
 	l.Select(selected)
 
 	out := make([]string, len(rows))
@@ -103,8 +103,8 @@ func TestRenderTruncatesOverlongText(t *testing.T) {
 // A zero width happens before the first WindowSizeMsg arrives. Rendering then
 // must produce nothing rather than a negative-length pad.
 func TestRenderAtZeroWidthWritesNothing(t *testing.T) {
-	d := delegate{selectionBg: lipgloss.Color("#313244")}
-	l := list.New(toItems([]agents.Row{testRow("w1:p1", "nix", "idle", "x", time.Minute)}), d, 0, 0)
+	d := delegate{spec: DefaultSpec, selectionBg: lipgloss.Color("#313244")}
+	l := list.New(toItems([]agents.Row{testRow("w1:p1", "nix", "idle", "x", time.Minute)}, DefaultSpec), d, 0, 0)
 	var buf bytes.Buffer
 	d.Render(&buf, l, 0, l.Items()[0])
 	if buf.Len() != 0 {
@@ -136,7 +136,7 @@ func TestRenderShowsAgeSpaceAndStatus(t *testing.T) {
 }
 
 func TestRenderIgnoresAForeignListItem(t *testing.T) {
-	d := delegate{selectionBg: lipgloss.Color("#313244")}
+	d := delegate{spec: DefaultSpec, selectionBg: lipgloss.Color("#313244")}
 	l := list.New(nil, d, 80, 20)
 	var buf bytes.Buffer
 	d.Render(&buf, l, 0, foreignItem{})
@@ -150,7 +150,7 @@ type foreignItem struct{}
 func (foreignItem) FilterValue() string { return "" }
 
 func TestDelegateGeometry(t *testing.T) {
-	d := delegate{}
+	d := delegate{spec: DefaultSpec}
 	if d.Height() != 2 {
 		t.Errorf("Height = %d, want 2", d.Height())
 	}
@@ -205,26 +205,6 @@ func TestRenderOmitsAnImpliedRepository(t *testing.T) {
 		worktreeRow("w1:p1", "billing", "billing", "main", false))[0])
 	if strings.Count(got, "billing") != 1 {
 		t.Errorf("the space name should appear once, not twice: %q", got)
-	}
-}
-
-// The column sizes itself to the content, so a list with no worktree context
-// stays as narrow as it was before the feature existed.
-func TestLabelColumnWidthAdaptsWithinBounds(t *testing.T) {
-	narrow := []agents.Row{worktreeRow("w1:p1", "nix", "nix", "main", false)}
-	if got := labelColumnWidth(narrow); got != labelMinWidth {
-		t.Errorf("width = %d, want the minimum %d", got, labelMinWidth)
-	}
-
-	wide := []agents.Row{worktreeRow("w1:p1", "changelog-bot", "platform", "changelog-bot", true)}
-	want := len([]rune(wide[0].Label()))
-	if got := labelColumnWidth(wide); got != want {
-		t.Errorf("width = %d, want %d to fit the label", got, want)
-	}
-
-	huge := []agents.Row{worktreeRow("w1:p1", strings.Repeat("x", 60), "y", "z", true)}
-	if got := labelColumnWidth(huge); got != labelMaxWidth {
-		t.Errorf("width = %d, want the maximum %d", got, labelMaxWidth)
 	}
 }
 
@@ -286,18 +266,6 @@ func TestAWideAgeKeepsItsSeparatingSpace(t *testing.T) {
 	line := strings.Split(visible(render(t, 90, 0, old)[0]), "\n")[0]
 	if !strings.HasPrefix(line, "▌ 400d") {
 		t.Errorf("got %q, want the bar, one space, then 400d", line[:12])
-	}
-}
-
-func TestAgeColumnWidth(t *testing.T) {
-	now := time.Now()
-	short := []agents.Row{testRow("p", "s", "idle", "m", 2*time.Hour)} // "2h"
-	if got := ageColumnWidth(short, now); got != ageMinWidth {
-		t.Errorf("width = %d, want the minimum %d", got, ageMinWidth)
-	}
-	wide := []agents.Row{testRow("p", "s", "idle", "m", 400*24*time.Hour)} // "400d"
-	if got := ageColumnWidth(wide, now); got != 4 {
-		t.Errorf("width = %d, want 4", got)
 	}
 }
 
