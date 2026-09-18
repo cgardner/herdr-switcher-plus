@@ -12,6 +12,13 @@ import (
 	"os/exec"
 )
 
+// run executes a Herdr CLI command and returns its stdout. It is a package
+// variable so tests can drive the parsing and sequencing without a live
+// Herdr server.
+var run = func(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).Output()
+}
+
 // Bin resolves the Herdr binary to call.
 func Bin() string {
 	if p := os.Getenv("HERDR_BIN_PATH"); p != "" {
@@ -83,12 +90,17 @@ type envelope struct {
 
 // Load reads the live session snapshot.
 func Load() (*Snapshot, error) {
-	out, err := exec.Command(Bin(), "api", "snapshot").Output()
+	out, err := run(Bin(), "api", "snapshot")
 	if err != nil {
 		return nil, fmt.Errorf("herdr api snapshot: %w", err)
 	}
+	return ParseSnapshot(out)
+}
+
+// ParseSnapshot decodes a session.snapshot response body.
+func ParseSnapshot(body []byte) (*Snapshot, error) {
 	var e envelope
-	if err := json.Unmarshal(out, &e); err != nil {
+	if err := json.Unmarshal(body, &e); err != nil {
 		return nil, fmt.Errorf("parse snapshot: %w", err)
 	}
 	return &e.Result.Snapshot, nil
@@ -100,9 +112,9 @@ func Load() (*Snapshot, error) {
 // focus is the one that matters.
 func Focus(a Agent) error {
 	bin := Bin()
-	_ = exec.Command(bin, "workspace", "focus", a.WorkspaceID).Run()
-	_ = exec.Command(bin, "tab", "focus", a.TabID).Run()
-	if err := exec.Command(bin, "agent", "focus", a.PaneID).Run(); err != nil {
+	_, _ = run(bin, "workspace", "focus", a.WorkspaceID)
+	_, _ = run(bin, "tab", "focus", a.TabID)
+	if _, err := run(bin, "agent", "focus", a.PaneID); err != nil {
 		return fmt.Errorf("herdr agent focus %s: %w", a.PaneID, err)
 	}
 	return nil

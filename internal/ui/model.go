@@ -2,7 +2,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -15,68 +14,80 @@ import (
 
 const spaceWidth = 22
 
-var (
-	ageStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
-	staleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	previewStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
-	titleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(lipgloss.Color("6")).Padding(0, 1)
+// Colors are ANSI indexes so the switcher follows whatever palette the
+// terminal already uses. Only the selection background is a hex value,
+// because it has to match Herdr's own overlays rather than the terminal.
+const (
+	accentColor  = "6"
+	staleColor   = "8"
+	previewColor = "8"
+
+	// On the selection bar the dim gray used elsewhere loses too much
+	// contrast, so stale ages and preview text step up one level.
+	selectedDimColor  = "7"
+	selectedTextColor = "15"
 )
 
-// statusStyles colors each agent lifecycle state. Herdr reports blocked when
-// it recognizes an approval or question UI, which is the state most worth
+// statusColors marks each agent lifecycle state. Herdr reports blocked when it
+// recognizes an approval or question UI, which is the state most worth
 // spotting in a long list.
-var statusStyles = map[string]lipgloss.Style{
-	"blocked": lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
-	"working": lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
-	"done":    lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
-	"idle":    lipgloss.NewStyle().Foreground(lipgloss.Color("8")),
-	"unknown": lipgloss.NewStyle().Foreground(lipgloss.Color("8")),
+var statusColors = map[string]string{
+	"blocked": "1",
+	"working": "3",
+	"done":    "2",
+	"idle":    "8",
+	"unknown": "8",
 }
+
+var (
+	errStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(lipgloss.Color("6")).Padding(0, 1)
+)
+
+// staleAfter is when an age stops reading as recent and turns gray.
+const staleAfter = 24 * time.Hour
 
 func glyph(status string) string {
 	if status == "idle" || status == "unknown" {
-		return "○"
+		return "\u25cb"
 	}
-	return "●"
+	return "\u25cf"
 }
 
-// item adapts a row to the bubbles list interface.
+func ageColorFor(r agentRow, now time.Time, selected bool) string {
+	if r.HasLast && now.Sub(r.Last.At) <= staleAfter {
+		return accentColor
+	}
+	if selected {
+		return selectedDimColor
+	}
+	return staleColor
+}
+
+func textColorFor(selected bool) string {
+	if selected {
+		return selectedTextColor
+	}
+	return ""
+}
+
+func previewColorFor(selected bool) string {
+	if selected {
+		return selectedDimColor
+	}
+	return previewColor
+}
+
+// agentRow names the row type the delegate renders, keeping its signatures
+// readable without importing the package name into every helper.
+type agentRow = agents.Row
+
+// item adapts a row to the bubbles list interface. Rendering lives in the
+// delegate, which composes each line so the selection background survives
+// across every styled segment.
 type item struct {
-	row agents.Row
+	row agentRow
 	now time.Time
-}
-
-func (i item) Title() string {
-	age := i.row.Age(i.now)
-	style := ageStyle
-	if !i.row.HasLast || i.now.Sub(i.row.Last.At) > 24*time.Hour {
-		style = staleStyle
-	}
-	st := statusStyles[i.row.Agent.Status]
-	space := pad(i.row.Space, spaceWidth)
-	return fmt.Sprintf("%s  %s %s %s",
-		style.Render(padLeft(age, 4)),
-		space,
-		st.Render(glyph(i.row.Agent.Status)),
-		st.Render(i.row.Agent.Status))
-}
-
-func (i item) Description() string {
-	text := i.row.Last.Text
-	if text == "" {
-		text = i.row.Agent.Title
-	}
-	if text == "" {
-		text = "(no message found)"
-	}
-	who := "  "
-	if i.row.Last.Role == "user" {
-		who = "› "
-	} else if i.row.Last.Role == "assistant" {
-		who = "‹ "
-	}
-	return previewStyle.Render(strings.Repeat(" ", 6) + who + text)
 }
 
 // FilterValue drives the type-to-filter search. Status and agent kind are
@@ -114,8 +125,12 @@ type refreshedMsg struct {
 	err  error
 }
 
+// collectRows is a package variable so tests can drive a refresh without a
+// live Herdr server.
+var collectRows = agents.Collect
+
 func refresh() tea.Msg {
-	rows, err := agents.Collect()
+	rows, err := collectRows()
 	return refreshedMsg{rows: rows, err: err}
 }
 
@@ -149,8 +164,7 @@ func title(mode agents.Mode, status agents.StatusFilter) string {
 // New builds the switcher from an initial set of rows, a starting mode and a
 // starting status filter.
 func New(rows []agents.Row, mode agents.Mode, status agents.StatusFilter) Model {
-	d := list.NewDefaultDelegate()
-	d.SetSpacing(0)
+	d := delegate{selectionBg: selectionBackground()}
 	ordered := append([]agents.Row(nil), rows...)
 	agents.Apply(mode, ordered)
 	l := list.New(toItems(status.Keep(ordered)), d, 0, 0)

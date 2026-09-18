@@ -33,3 +33,38 @@ func TestUnwritableStateDirIsSilent(t *testing.T) {
 		t.Errorf("LoadMode = %q, want empty", got)
 	}
 }
+
+// With no HERDR_PLUGIN_STATE_DIR the mode still persists, under the user cache
+// directory, so the switcher remembers itself when run outside Herdr.
+func TestFallsBackToTheUserCacheDirectory(t *testing.T) {
+	cache := t.TempDir()
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", "")
+	t.Setenv("XDG_CACHE_HOME", cache)
+	t.Setenv("HOME", cache)
+
+	SaveMode("oldest")
+	if got := LoadMode(); got != "oldest" {
+		t.Errorf("LoadMode = %q, want oldest", got)
+	}
+}
+
+func TestSaveTrimsTrailingWhitespaceOnLoad(t *testing.T) {
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir())
+	SaveMode("space")
+	if got := LoadMode(); got != "space" {
+		t.Errorf("LoadMode = %q, want space with no newline", got)
+	}
+}
+
+// With neither a state directory nor a home directory there is nowhere to
+// write. That must stay silent, because losing a remembered sort mode is a far
+// smaller problem than refusing to open the switcher.
+func TestNoWritableLocationIsSilent(t *testing.T) {
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", "")
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+	SaveMode("attention")
+	if got := LoadMode(); got != "" {
+		t.Errorf("LoadMode = %q, want empty", got)
+	}
+}
