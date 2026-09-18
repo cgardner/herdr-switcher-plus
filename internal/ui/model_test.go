@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cgardner/herdr-pane-sort/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/agents"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )

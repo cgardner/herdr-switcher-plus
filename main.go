@@ -1,4 +1,4 @@
-// Command herdr-pane-sort is an agent switcher for Herdr. It lists every
+// Command herdr-switcher-plus is an agent switcher for Herdr. It lists every
 // recognized coding agent, offers several orderings, and jumps to the pane the
 // user picks.
 //
@@ -9,7 +9,7 @@ package main
 import (
 	"os"
 
-	"github.com/cgardner/herdr-pane-sort/internal/cli"
+	"github.com/cgardner/herdr-switcher-plus/internal/cli"
 )
 
 func main() {

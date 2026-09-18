@@ -18,7 +18,7 @@ import (
 // below.
 const defaultSelectionBg = "#313244"
 
-const selectionBgEnv = "HERDR_PANE_SORT_SELECTION_BG"
+const selectionBgEnv = "HERDR_SWITCHER_PLUS_SELECTION_BG"
 
 var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 

@@ -1,4 +1,4 @@
-# herdr-pane-sort
+# herdr-switcher-plus
 
 An agent switcher for [Herdr](https://herdr.dev). It lists every coding agent,
 offers five orderings, filters as you type, and jumps to the pane you pick.
@@ -9,7 +9,7 @@ Herdr's own sidebar cannot produce on its own.
 ```
  agents · last message
  12 items
-│  now  herdr-pane-sort        ● working
+│  now  herdr-switcher-plus        ● working
 │       ‹ [Bash]
    22m  software-factory       ○ idle
         ‹ That is the stale worktree, still sitting at 2026-08-27 and missing …
@@ -68,8 +68,8 @@ switcher.
 full name:
 
 ```bash
-herdr-pane-sort --list --status blocked
-herdr-pane-sort --list --status w
+herdr-switcher-plus --list --status blocked
+herdr-switcher-plus --list --status w
 ```
 
 ## Filtering by text
@@ -124,7 +124,7 @@ tail, and the whole run takes about **20 ms**.
 ## Install
 
 ```bash
-herdr plugin install cgardner/herdr-pane-sort
+herdr plugin install cgardner/herdr-switcher-plus
 ```
 
 The install compiles from source, so the machine needs the Go toolchain.
@@ -132,9 +132,9 @@ The install compiles from source, so the machine needs the Go toolchain.
 For local development:
 
 ```bash
-git clone https://github.com/cgardner/herdr-pane-sort
-cd herdr-pane-sort
-go build -o bin/herdr-pane-sort .
+git clone https://github.com/cgardner/herdr-switcher-plus
+cd herdr-switcher-plus
+go build -o bin/herdr-switcher-plus .
 herdr plugin link "$PWD"
 ```
 
@@ -144,16 +144,16 @@ herdr plugin link "$PWD"
 
 ```bash
 # opens in whichever mode you last used
-herdr plugin action invoke cgardner.herdr-pane-sort.open
+herdr plugin action invoke cgardner.herdr-switcher-plus.open
 
 # opens with blocked agents first
-herdr plugin action invoke cgardner.herdr-pane-sort.open-attention
+herdr plugin action invoke cgardner.herdr-switcher-plus.open-attention
 ```
 
 Outside Herdr the binary also runs standalone:
 
 ```bash
-herdr-pane-sort --list --sort attention
+herdr-switcher-plus --list --sort attention
 ```
 
 ### Bind a key
@@ -165,13 +165,13 @@ Use `type = "plugin_action"` and put the fully qualified action id in
 [[keys.command]]
 key = "prefix+a"
 type = "plugin_action"
-command = "cgardner.herdr-pane-sort.open"
+command = "cgardner.herdr-switcher-plus.open"
 description = "agent switcher"
 
 [[keys.command]]
 key = "prefix+shift+a"
 type = "plugin_action"
-command = "cgardner.herdr-pane-sort.open-attention"
+command = "cgardner.herdr-switcher-plus.open-attention"
 description = "agents needing attention"
 ```
 
@@ -246,7 +246,7 @@ punch a hole in the bar part way across the line.
 
 The color comes from the first of these that holds a valid hex value:
 
-1. the `HERDR_PANE_SORT_SELECTION_BG` environment variable
+1. the `HERDR_SWITCHER_PLUS_SELECTION_BG` environment variable
 2. `selection_bg` under `[theme.custom]` in the Herdr config
 3. `#313244`, which is catppuccin's Surface0
 

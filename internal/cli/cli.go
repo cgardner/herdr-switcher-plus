@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cgardner/herdr-pane-sort/internal/agents"
-	"github.com/cgardner/herdr-pane-sort/internal/herdr"
-	"github.com/cgardner/herdr-pane-sort/internal/state"
-	"github.com/cgardner/herdr-pane-sort/internal/ui"
+	"github.com/cgardner/herdr-switcher-plus/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
+	"github.com/cgardner/herdr-switcher-plus/internal/state"
+	"github.com/cgardner/herdr-switcher-plus/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -53,11 +53,11 @@ func runTea(m ui.Model) (ui.Model, error) {
 // modeEnv carries a starting sort from an action. A plugin pane entrypoint has
 // one fixed command, so `herdr plugin pane open --env` is the only way an
 // action can ask that command for a different ordering.
-const modeEnv = "HERDR_PANE_SORT_MODE"
+const modeEnv = "HERDR_SWITCHER_PLUS_MODE"
 
 // Run executes the command and returns a process exit status.
 func Run(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("herdr-pane-sort", flag.ContinueOnError)
+	fs := flag.NewFlagSet("herdr-switcher-plus", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	plain := fs.Bool("list", false, "print the sorted agents as plain text and exit")
 	sortFlag := fs.String("sort", "", "sort mode: "+modeNames()+" (default: the last mode used)")
@@ -71,7 +71,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 	rows, err := collect()
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-pane-sort:", err)
+		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
 		return 1
 	}
 	agents.Apply(mode, rows)
@@ -83,7 +83,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 	final, err := runProgram(ui.New(rows, mode, status))
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-pane-sort:", err)
+		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
 		return 1
 	}
 	saveMode(string(final.Mode))
@@ -94,7 +94,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if err := focus(final.Chosen.Agent); err != nil {
-		fmt.Fprintln(stderr, "herdr-pane-sort:", err)
+		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
 		return 1
 	}
 	return 0
