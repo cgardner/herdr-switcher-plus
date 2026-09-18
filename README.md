@@ -237,9 +237,41 @@ read and write there fails silently rather than blocking the switcher.
   Herdr documentation describes that overlay, so the mapping is inferred from
   the key letters and the known agent states.
 
+## Selected row
+
+The selected agent gets a full-width background bar and a left marker, the way
+Herdr's own overlays mark a selection. The delegate composes every segment
+itself: a foreground style emits its own reset, so an unstyled segment would
+punch a hole in the bar part way across the line.
+
+The color comes from the first of these that holds a valid hex value:
+
+1. the `HERDR_PANE_SORT_SELECTION_BG` environment variable
+2. `selection_bg` under `[theme.custom]` in the Herdr config
+3. `#313244`, which is catppuccin's Surface0
+
+Herdr resolves a named theme inside its binary and exposes no API for the
+resulting palette, so a different named theme cannot be read. Someone not on
+catppuccin sets the color explicitly through one of the first two.
+
 ## Develop
 
 ```bash
 go test ./...
 go vet ./...
+go test ./... -coverprofile=cover.out && go tool cover -func=cover.out
 ```
+
+Coverage is 99.8% of statements, with four of the six packages at 100%. The
+three uncovered statements are the one-line boundaries to the outside world,
+each holding no logic:
+
+| statement | why no unit test reaches it |
+|---|---|
+| `exec.Command(...).Output()` | spawns a process |
+| `tea.NewProgram(...)` | needs a real terminal |
+| `os.Exit(cli.Run(...))` | the `main` shim |
+
+Everything around those three sits behind a package variable that a test
+replaces, so command sequencing, snapshot parsing, the transcript join, key
+handling and row rendering are all exercised without a Herdr server or a TTY.

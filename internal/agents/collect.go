@@ -27,22 +27,30 @@ type Row struct {
 	HasLast bool
 }
 
+// The three sources Collect draws on, as package variables so tests can drive
+// the join without a live Herdr server or a transcript directory on disk.
+var (
+	loadSnapshot     = herdr.Load
+	indexTranscripts = transcript.Index
+	readTranscript   = transcript.Read
+)
+
 // Collect reads the live snapshot and returns every agent, newest message
 // first. Callers reorder with Apply rather than calling Collect again, so
 // changing sort mode never re-reads a transcript.
 func Collect() ([]Row, error) {
-	snap, err := herdr.Load()
+	snap, err := loadSnapshot()
 	if err != nil {
 		return nil, err
 	}
-	idx := transcript.Index()
+	idx := indexTranscripts()
 
 	rows := make([]Row, 0, len(snap.Agents))
 	for _, a := range snap.Agents {
 		label, number := snap.Workspace(a.WorkspaceID)
 		r := Row{Agent: a, Space: label, SpaceNumber: number}
 		if p, ok := idx[a.Session.Value]; ok && a.Session.Value != "" {
-			r.Last, r.HasLast = transcript.Read(p)
+			r.Last, r.HasLast = readTranscript(p)
 		}
 		rows = append(rows, r)
 	}

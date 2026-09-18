@@ -122,3 +122,56 @@ func TestEveryModeHasALabel(t *testing.T) {
 		}
 	}
 }
+
+// An unrecognized mode must still render a label and still sort, rather than
+// showing a blank title or leaving the list in input order.
+func TestUnknownModeLabelsAndSortsAsRecent(t *testing.T) {
+	bogus := Mode("bogus")
+	if got := bogus.Label(); got != "bogus" {
+		t.Errorf("Label = %q, want the raw name", got)
+	}
+	rows := []Row{
+		row("old", "idle", "a", 1, "2026-09-01T00:00:00Z"),
+		row("new", "idle", "b", 2, "2026-09-18T00:00:00Z"),
+	}
+	check(t, bogus, rows, "new", "old")
+}
+
+// Inside a group, two rows that both lack a transcript fall back to Herdr's
+// monotonic counter rather than comparing zero timestamps.
+func TestGroupedModesFallBackToStateChangeSeq(t *testing.T) {
+	rows := []Row{
+		withoutMessage("low", 10),
+		withoutMessage("high", 900),
+	}
+	rows[0].Agent.Status, rows[1].Agent.Status = "idle", "idle"
+	check(t, ModeAttention, rows, "high", "low")
+}
+
+// A row with a transcript outranks one without, even inside the same group.
+func TestGroupedModesPreferRowsWithAMessage(t *testing.T) {
+	a := withoutMessage("none", 9999)
+	a.Agent.Status = "idle"
+	b := row("timed", "idle", "a", 1, "2020-01-01T00:00:00Z")
+	check(t, ModeAttention, []Row{a, b}, "timed", "none")
+}
+
+func TestItoaHandlesZeroAndMultipleDigits(t *testing.T) {
+	cases := map[int]string{0: "0", 7: "7", 42: "42", 1234: "1234"}
+	for in, want := range cases {
+		if got := itoa(in); got != want {
+			t.Errorf("itoa(%d) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// Oldest-first still keeps rows without a transcript at the bottom, and orders
+// them among themselves by the counter, ascending like the mode itself.
+func TestOldestOrdersUntimedRowsByCounterAscending(t *testing.T) {
+	rows := []Row{
+		withoutMessage("high", 900),
+		withoutMessage("low", 10),
+		row("timed", "idle", "a", 1, "2026-09-01T00:00:00Z"),
+	}
+	check(t, ModeOldest, rows, "timed", "low", "high")
+}

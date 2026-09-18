@@ -12,6 +12,7 @@ package transcript
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,13 @@ func Index() map[string]string {
 	if err != nil {
 		return nil
 	}
-	matches, err := filepath.Glob(filepath.Join(home, ".claude", "projects", "*", "*.jsonl"))
+	return IndexIn(filepath.Join(home, ".claude", "projects"))
+}
+
+// IndexIn maps session UUIDs to transcript paths under an explicit projects
+// directory.
+func IndexIn(root string) map[string]string {
+	matches, err := filepath.Glob(filepath.Join(root, "*", "*.jsonl"))
 	if err != nil {
 		return nil
 	}
@@ -84,8 +91,22 @@ func Read(path string) (Message, bool) {
 	return scan(whole)
 }
 
+// tailFile is the slice of *os.File that readTail uses.
+type tailFile interface {
+	io.Reader
+	io.Seeker
+	io.Closer
+	Stat() (os.FileInfo, error)
+}
+
+// openTail is a seam. A real filesystem almost never fails Stat or Seek on a
+// file it has just opened, but the guards around those calls are what keep a
+// vanished or unseekable transcript from returning garbage, so tests need a
+// way to trigger them.
+var openTail = func(path string) (tailFile, error) { return os.Open(path) }
+
 func readTail(path string) []byte {
-	f, err := os.Open(path)
+	f, err := openTail(path)
 	if err != nil {
 		return nil
 	}
