@@ -185,3 +185,57 @@ func TestRoleMark(t *testing.T) {
 		}
 	}
 }
+
+func worktreeRow(pane, space, repo, branch string, linked bool) agents.Row {
+	r := testRow(pane, space, "idle", "a message", time.Minute)
+	r.Repo, r.Branch, r.Linked = repo, branch, linked
+	return r
+}
+
+func TestRenderShowsTheWorktreeLabel(t *testing.T) {
+	got := visible(render(t, 100, 0,
+		worktreeRow("w1:p1", "software-factory", "Second Brain", "software-factory", true))[0])
+	if !strings.Contains(got, "Second Brain ⑂ software-factory") {
+		t.Errorf("rendered row is missing the worktree label: %q", got)
+	}
+}
+
+func TestRenderOmitsAnImpliedRepository(t *testing.T) {
+	got := visible(render(t, 100, 0,
+		worktreeRow("w1:p1", "badger", "badger", "main", false))[0])
+	if strings.Count(got, "badger") != 1 {
+		t.Errorf("the space name should appear once, not twice: %q", got)
+	}
+}
+
+// The column sizes itself to the content, so a list with no worktree context
+// stays as narrow as it was before the feature existed.
+func TestLabelColumnWidthAdaptsWithinBounds(t *testing.T) {
+	narrow := []agents.Row{worktreeRow("w1:p1", "nix", "nix", "main", false)}
+	if got := labelColumnWidth(narrow); got != labelMinWidth {
+		t.Errorf("width = %d, want the minimum %d", got, labelMinWidth)
+	}
+
+	wide := []agents.Row{worktreeRow("w1:p1", "release-tracking", "Second Brain", "release-tracking", true)}
+	want := len([]rune(wide[0].Label()))
+	if got := labelColumnWidth(wide); got != want {
+		t.Errorf("width = %d, want %d to fit the label", got, want)
+	}
+
+	huge := []agents.Row{worktreeRow("w1:p1", strings.Repeat("x", 60), "y", "z", true)}
+	if got := labelColumnWidth(huge); got != labelMaxWidth {
+		t.Errorf("width = %d, want the maximum %d", got, labelMaxWidth)
+	}
+}
+
+// Repository and branch stay searchable even on rows whose label leaves them
+// out as implied.
+func TestFilterValueCarriesRepositoryAndBranch(t *testing.T) {
+	r := worktreeRow("w1:p1", "badger", "scouts-scraping", "scoutbook-plus-api", true)
+	got := item{row: r, now: time.Now()}.FilterValue()
+	for _, want := range []string{"scouts-scraping", "scoutbook-plus-api"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("FilterValue is missing %q: %q", want, got)
+		}
+	}
+}

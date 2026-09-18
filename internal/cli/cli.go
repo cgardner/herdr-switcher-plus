@@ -126,8 +126,8 @@ func resolveMode(flagValue string) agents.Mode {
 func writeList(w io.Writer, rows []agents.Row) {
 	now := time.Now()
 	for _, r := range rows {
-		fmt.Fprintf(w, "%4s  %-10s %-22s %-8s %s\n",
-			r.Age(now), r.Agent.PaneID, trunc(r.Space, 22), r.Agent.Status, trunc(r.Last.Text, 60))
+		fmt.Fprintf(w, "%4s  %-10s %-34s %-8s %s\n",
+			r.Age(now), r.Agent.PaneID, trunc(r.Label(), 34), r.Agent.Status, trunc(r.Last.Text, 50))
 	}
 }
 

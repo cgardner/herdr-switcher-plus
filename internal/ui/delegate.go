@@ -70,7 +70,7 @@ func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	title := seg(gutterColor).Render(gutter) +
 		seg(ageColor).Render(padLeft(age, 4)) +
 		base.Render("  ") +
-		seg(textColorFor(selected)).Render(pad(it.row.Space, spaceWidth)) +
+		seg(textColorFor(selected)).Render(pad(it.row.Label(), it.labelWidth)) +
 		base.Render(" ") +
 		seg(statusColors[status]).Render(glyph(status)+" "+status)
 

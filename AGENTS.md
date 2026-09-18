@@ -41,11 +41,29 @@ out of the binary or found by probing, and each one cost real time:
   `spaces` and `priority`. It has no CLI, and the snapshot does not report the
   resulting order, so only a human can confirm it visually.
 
+## Herdr reports no branch
+
+The snapshot carries a workspace's `repo_name`, `is_linked_worktree` and
+`checkout_path`, and no branch. `herdr worktree list` knows the branch but
+scopes to the calling pane's repository, so covering every space costs one call
+per repository. `internal/gitref` reads `.git/HEAD` instead and answered 14 of
+17 spaces in about 2 ms.
+
+A linked worktree's `.git` is a file holding `gitdir: <path>`, not a directory.
+Several spaces here are linked worktrees of one repository, so that is the
+common path rather than an edge case.
+
+`Row.Label` decides what reaches the screen, and its rule is to print only what
+is surprising: the repository when it differs from the space name, the branch
+when it differs from the space name and is not the default. Adding a field that
+is usually implied costs width on every row and tells the reader nothing.
+
 ## Seams
 
 Anything reaching outside the process sits behind a package variable that a
 test replaces: `herdr.run`, `agents.loadSnapshot`, `agents.indexTranscripts`,
-`agents.readTranscript`, `transcript.openTail`, `ui.collectRows`,
+`agents.readTranscript`, `agents.resolveBranch`, `transcript.openTail`,
+`ui.collectRows`,
 `cli.collect`, `cli.loadMode`, `cli.saveMode`, `cli.focus`, `cli.newProgram`.
 
 Keep new outside calls behind the same pattern. `make cover` holds a 99% floor,
