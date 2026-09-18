@@ -1,6 +1,6 @@
 id = "cgardner.herdr-switcher-plus"
 name = "herdr-switcher-plus"
-version = "0.1.0"
+version = "0.1.1"
 
 # Verified against 0.9.1. Needs `agent_session` in the session snapshot, which
 # carries the Claude Code session UUID this plugin matches transcripts on.
