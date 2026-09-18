@@ -9,19 +9,50 @@ Herdr's own sidebar cannot produce on its own.
 ```
  agents · last message
  12 items
-│  now  herdr-switcher-plus        ● working
-│       ‹ [Bash]
-   22m  auth-service       ○ idle
-        ‹ That is the stale worktree, still sitting at 2026-08-27 and missing …
-   58m  pricing            ○ idle
-        ‹ Worktree removed. Merged, shipped, cleaned up. Before deleting, I mo…
-    3h  web-client        ○ idle
+▌  now  herdr-switcher-plus                  ● working
+▌       ‹ [Bash]
+   24m  platform ⑂ auth-service      ○ idle
+        ‹ Saved into the existing GitHub auth memory rather than a second file…
+    6h  web-client  @redesign-nav ○ idle
         › Authentication successful. Connected to the a vendor Docs MCP.
-    2d  nix                    ○ idle
+    1d  platform ⑂ lint-rules            ○ idle
+        ‹ Saved that to project memory — it is a standing constraint, not a de…
+    2d  dotfiles                           ○ idle
+        › /install-app
+    2d  infra-terraform / nix                     ○ idle
         ‹ The dashboard is republished in place: https://claude.ai/code/arti…
 
  ↑/k up • ↓/j down • / filter • enter jump • s/S sort • r refresh • q quit
 ```
+
+## Repository and worktree context
+
+Several Herdr spaces are often linked worktrees of one repository, and the
+space name alone does not reveal that. The label says so, but only when the
+space name does not already imply it:
+
+| label | meaning |
+|---|---|
+| `dotfiles` | the space name tells you everything |
+| `infra-terraform / nix` | an ordinary checkout in a differently named space |
+| `platform ⑂ auth-service` | a linked worktree of another repository |
+| `web-client  @redesign-nav` | a space whose name hides its branch |
+
+The rule is to print only what is surprising. The repository appears when it
+differs from the space name, the branch when it differs from the space name and
+is not `main` or `master`. On a live 12-agent session that left five of twelve
+rows silent, and the label column sizes itself to what the rows need.
+
+The alternative layouts were worse in practice. A separate repository column
+made half the rows repeat themselves (`web-client  web-client`) while
+spending width the message preview needed. A third line per agent carried more
+but dropped the visible list by a third.
+
+Herdr reports the repository name and whether a space is a linked worktree, but
+never the branch. `herdr worktree list` knows it and scopes to the calling
+pane's repository, so covering every space would mean one call per repository.
+Reading `.git/HEAD` in each checkout answers them all at once, in about 2 ms
+across seventeen spaces.
 
 ## Sort modes
 
@@ -74,8 +105,10 @@ herdr-switcher-plus --list --status w
 
 ## Filtering by text
 
-`/` filters by case-insensitive substring across space name, status, agent
-kind, pane title, working directory, pane ID and the last message text. Every
+`/` filters by case-insensitive substring across space name, repository,
+branch, status, agent kind, pane title, working directory, pane ID and the last
+message text. The repository and branch stay searchable on rows whose label
+leaves them out as implied, so `/platform` finds every worktree of it. Every
 space-separated term must match, so `/blocked nix` narrows to both.
 
 Filtering never reorders. The bubbles default ranks by fuzzy score, which would
@@ -193,7 +226,7 @@ not in the linked file.
 | key | action |
 |---|---|
 | `↑` `↓` `k` `j` | move |
-| `/` | filter on space, status, kind, title, path and message text |
+| `/` | filter on space, repo, branch, status, kind, title, path and message text |
 | `a` `b` `w` `i` `d` | show all, blocked, working, idle or done |
 | `s` `S` | cycle the sort mode forward or back |
 | `enter` | focus that pane |

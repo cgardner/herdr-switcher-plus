@@ -12,7 +12,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const spaceWidth = 22
+// The label column sizes itself to the widest label on screen, within these
+// bounds. A list where nothing carries repository context stays as narrow as it
+// was before, and a list full of worktrees widens only as far as the preview
+// can afford.
+const (
+	labelMinWidth = 20
+	labelMaxWidth = 38
+)
 
 // Colors are ANSI indexes so the switcher follows whatever palette the
 // terminal already uses. Only the selection background is a hex value,
@@ -88,14 +95,22 @@ type agentRow = agents.Row
 type item struct {
 	row agentRow
 	now time.Time
+
+	// labelWidth is shared by every item in one list so the status column
+	// lines up down the pane.
+	labelWidth int
 }
 
-// FilterValue drives the type-to-filter search. Status and agent kind are
-// included so "/blocked" or "/codex" narrows the list without a separate
-// filter control.
+// FilterValue drives the type-to-filter search. Status, agent kind, repository
+// and branch are included so "/blocked", "/codex" or "/platform" narrows
+// the list without a separate filter control. Anything the row can display is
+// searchable, which is why the repository and branch appear here even when the
+// label leaves them out as implied.
 func (i item) FilterValue() string {
 	return strings.Join([]string{
 		i.row.Space,
+		i.row.Repo,
+		i.row.Branch,
 		i.row.Agent.Status,
 		i.row.Agent.Kind,
 		i.row.Agent.Title,
@@ -226,11 +241,27 @@ func (m *Model) setStatus(status agents.StatusFilter) {
 
 func toItems(rows []agents.Row) []list.Item {
 	now := time.Now()
+	width := labelColumnWidth(rows)
 	out := make([]list.Item, len(rows))
 	for i, r := range rows {
-		out[i] = item{row: r, now: now}
+		out[i] = item{row: r, now: now, labelWidth: width}
 	}
 	return out
+}
+
+// labelColumnWidth measures the widest label and clamps it, so the column
+// grows only as far as the rows actually need.
+func labelColumnWidth(rows []agents.Row) int {
+	width := labelMinWidth
+	for _, r := range rows {
+		if n := len([]rune(r.Label())); n > width {
+			width = n
+		}
+	}
+	if width > labelMaxWidth {
+		return labelMaxWidth
+	}
+	return width
 }
 
 // Init satisfies tea.Model and starts no work, because New already holds rows.

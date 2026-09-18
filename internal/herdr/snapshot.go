@@ -53,11 +53,24 @@ type Agent struct {
 	Session        Session `json:"agent_session"`
 }
 
+// Worktree describes the git checkout behind a workspace. It is absent for a
+// workspace that is not a git checkout at all.
+//
+// Herdr reports no branch here. Resolving one means reading the checkout, which
+// internal/gitref does.
+type Worktree struct {
+	RepoName     string `json:"repo_name"`
+	RepoRoot     string `json:"repo_root"`
+	CheckoutPath string `json:"checkout_path"`
+	IsLinked     bool   `json:"is_linked_worktree"`
+}
+
 // Workspace is a Herdr workspace, which the UI calls a space.
 type Workspace struct {
-	WorkspaceID string `json:"workspace_id"`
-	Label       string `json:"label"`
-	Number      int    `json:"number"`
+	WorkspaceID string    `json:"workspace_id"`
+	Label       string    `json:"label"`
+	Number      int       `json:"number"`
+	Worktree    *Worktree `json:"worktree"`
 }
 
 // Snapshot is the subset of session.snapshot this plugin reads.
@@ -67,19 +80,28 @@ type Snapshot struct {
 	FocusedPaneID string      `json:"focused_pane_id"`
 }
 
+// FindWorkspace returns the workspace with this ID, or nil.
+func (s *Snapshot) FindWorkspace(id string) *Workspace {
+	for i := range s.Workspaces {
+		if s.Workspaces[i].WorkspaceID == id {
+			return &s.Workspaces[i]
+		}
+	}
+	return nil
+}
+
 // Workspace resolves a workspace ID to its display label and sidebar position.
 // A workspace missing from the snapshot falls back to the raw ID, and sorts
 // after every known space.
 func (s *Snapshot) Workspace(id string) (label string, number int) {
-	for _, w := range s.Workspaces {
-		if w.WorkspaceID == id {
-			if w.Label != "" {
-				return w.Label, w.Number
-			}
-			return id, w.Number
-		}
+	w := s.FindWorkspace(id)
+	if w == nil {
+		return id, 1 << 30
 	}
-	return id, 1 << 30
+	if w.Label != "" {
+		return w.Label, w.Number
+	}
+	return id, w.Number
 }
 
 type envelope struct {

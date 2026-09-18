@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cgardner/herdr-switcher-plus/internal/gitref"
 	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
 	"github.com/cgardner/herdr-switcher-plus/internal/transcript"
 )
@@ -23,6 +24,13 @@ type Row struct {
 	Space       string
 	SpaceNumber int
 
+	// Repo, Linked and Branch describe the git checkout behind the space.
+	// Several spaces are often linked worktrees of one repository, which the
+	// space name alone does not reveal.
+	Repo   string
+	Linked bool
+	Branch string
+
 	Last    transcript.Message
 	HasLast bool
 }
@@ -33,6 +41,7 @@ var (
 	loadSnapshot     = herdr.Load
 	indexTranscripts = transcript.Index
 	readTranscript   = transcript.Read
+	resolveBranch    = gitref.Branch
 )
 
 // Collect reads the live snapshot and returns every agent, newest message
@@ -49,6 +58,11 @@ func Collect() ([]Row, error) {
 	for _, a := range snap.Agents {
 		label, number := snap.Workspace(a.WorkspaceID)
 		r := Row{Agent: a, Space: label, SpaceNumber: number}
+		if w := snap.FindWorkspace(a.WorkspaceID); w != nil && w.Worktree != nil {
+			r.Repo = w.Worktree.RepoName
+			r.Linked = w.Worktree.IsLinked
+			r.Branch = resolveBranch(w.Worktree.CheckoutPath)
+		}
 		if p, ok := idx[a.Session.Value]; ok && a.Session.Value != "" {
 			r.Last, r.HasLast = readTranscript(p)
 		}
@@ -107,4 +121,38 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(b[i:])
+}
+
+// defaultBranches never earn a place on the row. Sitting on the default branch
+// is the unremarkable case, so naming it would cost width on most rows while
+// telling the reader nothing.
+var defaultBranches = map[string]bool{"main": true, "master": true}
+
+// Label names the row: the space, plus whatever context is not already implied
+// by it.
+//
+// The rule is to print only what is surprising. A space named after its own
+// repository repeats itself if the repository is shown, and several of them on
+// screen crowd out the message preview while adding nothing. So the repository
+// appears only when it differs from the space name, and the branch only when it
+// differs from the space name and is not the default.
+//
+// What survives that filter is the genuinely ambiguous case: a space that is a
+// linked worktree of some other project, or one whose name hides which branch
+// it sits on.
+func (r Row) Label() string {
+	label := r.Space
+
+	if r.Repo != "" && r.Repo != r.Space {
+		sep := "/"
+		if r.Linked {
+			sep = "⑂"
+		}
+		label = r.Repo + " " + sep + " " + label
+	}
+
+	if r.Branch != "" && r.Branch != r.Space && !defaultBranches[r.Branch] {
+		label += "  @" + r.Branch
+	}
+	return label
 }

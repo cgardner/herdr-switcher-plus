@@ -169,3 +169,54 @@ func TestFocusReportsAnAgentFocusFailure(t *testing.T) {
 		t.Errorf("error should name the pane, got %v", err)
 	}
 }
+
+const worktreeBody = `{"id":"x","result":{"snapshot":{
+  "workspaces":[
+    {"workspace_id":"w5","label":"nix","number":1,
+     "worktree":{"repo_name":"infra-terraform","repo_root":"/c/infra-terraform/",
+                 "checkout_path":"/c/infra-terraform/","is_linked_worktree":false}},
+    {"workspace_id":"w3R","label":"auth-service","number":2,
+     "worktree":{"repo_name":"platform","checkout_path":"/c/sf","is_linked_worktree":true}},
+    {"workspace_id":"w19","label":"dotfiles","number":3}],
+  "agents":[]}}}`
+
+func TestParseSnapshotDecodesTheWorktree(t *testing.T) {
+	s, err := ParseSnapshot([]byte(worktreeBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := s.FindWorkspace("w5")
+	if w == nil || w.Worktree == nil {
+		t.Fatal("expected a worktree on w5")
+	}
+	if w.Worktree.RepoName != "infra-terraform" || w.Worktree.IsLinked {
+		t.Errorf("decoded wrong: %+v", w.Worktree)
+	}
+	if w.Worktree.CheckoutPath != "/c/infra-terraform/" {
+		t.Errorf("checkout path = %q", w.Worktree.CheckoutPath)
+	}
+}
+
+func TestParseSnapshotMarksALinkedWorktree(t *testing.T) {
+	s, _ := ParseSnapshot([]byte(worktreeBody))
+	w := s.FindWorkspace("w3R")
+	if w.Worktree == nil || !w.Worktree.IsLinked {
+		t.Errorf("w3R should be a linked worktree: %+v", w.Worktree)
+	}
+}
+
+// A workspace that is not a git checkout carries no worktree at all, so the
+// field stays nil rather than becoming a zero-valued struct.
+func TestWorkspaceWithoutAWorktreeIsNil(t *testing.T) {
+	s, _ := ParseSnapshot([]byte(worktreeBody))
+	if w := s.FindWorkspace("w19"); w == nil || w.Worktree != nil {
+		t.Errorf("w19 should have no worktree, got %+v", w)
+	}
+}
+
+func TestFindWorkspaceMissesCleanly(t *testing.T) {
+	s, _ := ParseSnapshot([]byte(worktreeBody))
+	if got := s.FindWorkspace("nope"); got != nil {
+		t.Errorf("got %+v, want nil", got)
+	}
+}

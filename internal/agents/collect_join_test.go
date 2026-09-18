@@ -147,3 +147,62 @@ func TestStatusFilterLabel(t *testing.T) {
 		t.Errorf("StatusBlocked.Label = %q, want blocked", got)
 	}
 }
+
+func stubBranch(t *testing.T, fn func(string) string) {
+	t.Helper()
+	prev := resolveBranch
+	resolveBranch = fn
+	t.Cleanup(func() { resolveBranch = prev })
+}
+
+func TestCollectAttachesRepositoryAndBranch(t *testing.T) {
+	snap := &herdr.Snapshot{
+		Agents: []herdr.Agent{agent("w1:p1", "w1", "")},
+		Workspaces: []herdr.Workspace{{
+			WorkspaceID: "w1", Label: "auth-service", Number: 3,
+			Worktree: &herdr.Worktree{
+				RepoName: "platform", IsLinked: true,
+				CheckoutPath: "/checkouts/auth-service",
+			},
+		}},
+	}
+	var asked string
+	stubSources(t, snap, nil, nil, nil)
+	stubBranch(t, func(p string) string { asked = p; return "auth-service" })
+
+	rows, err := Collect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := rows[0]
+	if r.Repo != "platform" || !r.Linked || r.Branch != "auth-service" {
+		t.Errorf("worktree not attached: %+v", r)
+	}
+	if asked != "/checkouts/auth-service" {
+		t.Errorf("branch resolved from %q, want the checkout path", asked)
+	}
+	if got := r.Label(); got != "platform ⑂ auth-service" {
+		t.Errorf("Label = %q", got)
+	}
+}
+
+// A workspace that is not a git checkout has no worktree, and the branch
+// lookup must not run at all.
+func TestCollectSkipsBranchLookupWithoutAWorktree(t *testing.T) {
+	snap := &herdr.Snapshot{
+		Agents:     []herdr.Agent{agent("w1:p1", "w1", "")},
+		Workspaces: []herdr.Workspace{{WorkspaceID: "w1", Label: "dotfiles", Number: 1}},
+	}
+	stubSources(t, snap, nil, nil, nil)
+	stubBranch(t, func(string) string {
+		t.Fatal("no worktree means no branch lookup")
+		return ""
+	})
+	rows, _ := Collect()
+	if rows[0].Repo != "" || rows[0].Branch != "" || rows[0].Linked {
+		t.Errorf("expected no worktree context: %+v", rows[0])
+	}
+	if got := rows[0].Label(); got != "dotfiles" {
+		t.Errorf("Label = %q, want the bare space", got)
+	}
+}
