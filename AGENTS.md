@@ -160,8 +160,14 @@ reorders results and so overrides the chosen sort mode.
 
 Three places carry the version and all three must agree: the git tag, `version`
 in `herdr-plugin.toml`, and the download URL that `scripts/install.sh` builds
-from that version. release-please syncs the manifest, and the release workflow
+from that version. release-please syncs the manifest, and the build workflow
 fails a tag that disagrees.
+
+The release build runs inside the release-please workflow, gated on its
+`release_created` output. GitHub starts no workflow from an event created with
+`GITHUB_TOKEN`, so a tag release-please pushes never fires `on: push: tags`.
+Moving the build back out would tag a release with no binaries attached, and
+nothing would fail: installs would quietly compile from source instead.
 
 The `PLATFORMS` list in the `Makefile` and the `uname` cases in
 `scripts/install.sh` name the same four targets. Changing one without the other
