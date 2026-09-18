@@ -15,20 +15,22 @@ row_gap = 0
 
 # The built-in layout, written out. Tokens available:
 #
-#   age             time since the last message, and a number in minutes
-#                   that gt and lt rules compare against
-#   label           the space, plus repo and branch when not implied
-#   space           the space name alone
-#   repo            repository name
-#   branch          branch name
-#   state_icon      ● or ○
-#   state_text      idle, working, blocked, done, unknown
-#   agent           claude, codex, ...
-#   pane            w5:p1E
-#   cwd             working directory, with home written as ~
-#   terminal_title  the pane title
-#   role            › for your message, ‹ for the agent's
-#   message         the last message
+# BEGIN GENERATED: tokens
+#   age             time since the last message
+#                   gt and lt compare against this, in minutes
+#   agent           the agent kind, such as claude or codex
+#   branch          the branch the checkout sits on
+#   cwd             the working directory, with your home written as a tilde
+#   label           the space, plus the repository and branch when not already implied
+#   message         the last message in the session
+#   pane            the Herdr pane ID, such as w5:p1E
+#   repo            the repository name, empty when the space is not a checkout
+#   role            a mark showing whether you or the agent spoke last
+#   space           the Herdr space name on its own
+#   state_icon      a filled dot while an agent wants attention, hollow at rest
+#   state_text      idle, working, blocked, done or unknown
+#   terminal_title  the pane title as the terminal reports it
+# END GENERATED: tokens
 #
 # A row after the first hangs under the first row's second column, so a
 # message sits below the name it belongs to.

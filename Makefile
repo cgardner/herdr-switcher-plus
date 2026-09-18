@@ -20,9 +20,17 @@ build: ## Build the plugin binary into bin/
 test: ## Run the test suite
 	@go test ./...
 
+# Coverage measures the product: every internal package plus the root main.
+# -coverpkg is what makes a call from one package into another count, without
+# which a helper used only by a sibling's tests reads as dead.
+#
+# tools/ is left out. It is a build-time generator, and `make docs-check` runs
+# it end to end in CI, which proves more than a unit test of its flag parsing.
+COVER_PKGS := ./internal/...,.
+
 .PHONY: cover
 cover: ## Run tests and fail below COVER_MIN percent of statements
-	@go test ./... -covermode=count -coverprofile=cover.out >/dev/null
+	@go test ./... -covermode=count -coverpkg=$(COVER_PKGS) -coverprofile=cover.out >/dev/null
 	@go tool cover -func=cover.out | tail -1
 	@go tool cover -func=cover.out | tail -1 | awk '{gsub(/%/,"",$$3); \
 	  if ($$3+0 < $(COVER_MIN)) { printf "coverage %.1f%% is below the %s%% floor\n", $$3, "$(COVER_MIN)"; exit 1 } }'
@@ -40,8 +48,16 @@ lint: ## Fail if anything is unformatted or vet reports a problem
 	@test -z "$$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
 	@go vet ./...
 
+.PHONY: docs
+docs: ## Regenerate the reference tables from the registries
+	@go run ./tools/gendocs
+
+.PHONY: docs-check
+docs-check: ## Fail when the generated documentation is out of date
+	@go run ./tools/gendocs -check
+
 .PHONY: ci
-ci: lint cover ## Everything the CI workflow runs
+ci: lint docs-check cover ## Everything the CI workflow runs
 
 .PHONY: dist
 dist: ## Cross-compile a release binary for every platform

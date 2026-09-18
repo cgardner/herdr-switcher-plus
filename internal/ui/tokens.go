@@ -24,57 +24,90 @@ type cell struct {
 // differently on the selection bar, where the usual gray loses contrast.
 type tokenFunc func(r agents.Row, now time.Time, selected bool) cell
 
+// tokenDef is one entry in the registry: how to draw the token, and what it is
+// for. The description lives here rather than in prose because the reference
+// documentation is generated from this map, so a new token documents itself
+// and an edited one cannot leave a stale sentence behind.
+type tokenDef struct {
+	render tokenFunc
+
+	// Description is one line, written to be read in a table.
+	Description string
+
+	// Numeric names the unit a gt or lt rule compares against, and is empty
+	// for a token that carries no number.
+	Numeric string
+}
+
+// TokenDoc is one row of the generated token reference.
+type TokenDoc struct {
+	Name        string
+	Description string
+	Numeric     string
+}
+
+// TokenDocs returns every token in name order, for the documentation
+// generator.
+func TokenDocs() []TokenDoc {
+	out := make([]TokenDoc, 0, len(tokens))
+	for _, name := range tokenNames() {
+		def := tokens[name]
+		out = append(out, TokenDoc{Name: name, Description: def.Description, Numeric: def.Numeric})
+	}
+	return out
+}
+
 func num(f float64) *float64 { return &f }
 
 // tokens is the registry. Every name here is configurable in a row, and any
 // name absent from it is rejected at load time with the row number.
-var tokens = map[string]tokenFunc{
+var tokens = map[string]tokenDef{
 	// age carries a number so a rule can say { gt = 1440, dim = true } to mean
 	// "older than a day". Minutes is the unit because it is the finest scale
 	// the text itself shows.
-	"age": func(r agents.Row, now time.Time, selected bool) cell {
+	"age": {Description: "time since the last message", Numeric: "minutes", render: func(r agents.Row, now time.Time, selected bool) cell {
 		c := cell{text: r.Age(now), fg: ageColorFor(r, now, selected), alignEnd: true}
 		if r.HasLast {
 			c.number = num(now.Sub(r.Last.At).Minutes())
 		}
 		return c
-	},
-	"label": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"label": {Description: "the space, plus the repository and branch when not already implied", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Label(), fg: textColorFor(selected)}
-	},
-	"space": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"space": {Description: "the Herdr space name on its own", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Space, fg: textColorFor(selected)}
-	},
-	"repo": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"repo": {Description: "the repository name, empty when the space is not a checkout", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Repo, fg: textColorFor(selected)}
-	},
-	"branch": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"branch": {Description: "the branch the checkout sits on", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Branch, fg: textColorFor(selected)}
-	},
-	"state_icon": func(r agents.Row, _ time.Time, _ bool) cell {
+	}},
+	"state_icon": {Description: "a filled dot while an agent wants attention, hollow at rest", render: func(r agents.Row, _ time.Time, _ bool) cell {
 		return cell{text: glyph(r.Agent.Status), fg: statusColors[r.Agent.Status]}
-	},
-	"state_text": func(r agents.Row, _ time.Time, _ bool) cell {
+	}},
+	"state_text": {Description: "idle, working, blocked, done or unknown", render: func(r agents.Row, _ time.Time, _ bool) cell {
 		return cell{text: r.Agent.Status, fg: statusColors[r.Agent.Status]}
-	},
-	"agent": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"agent": {Description: "the agent kind, such as claude or codex", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Agent.Kind, fg: previewColorFor(selected)}
-	},
-	"pane": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"pane": {Description: "the Herdr pane ID, such as w5:p1E", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Agent.PaneID, fg: previewColorFor(selected)}
-	},
-	"cwd": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"cwd": {Description: "the working directory, with your home written as a tilde", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: shortenHome(r.Agent.Cwd), fg: previewColorFor(selected)}
-	},
-	"terminal_title": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"terminal_title": {Description: "the pane title as the terminal reports it", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Agent.Title, fg: previewColorFor(selected)}
-	},
-	"role": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"role": {Description: "a mark showing whether you or the agent spoke last", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: strings.TrimSpace(roleMark(r.Last.Role)), fg: previewColorFor(selected)}
-	},
-	"message": func(r agents.Row, _ time.Time, selected bool) cell {
+	}},
+	"message": {Description: "the last message in the session", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: previewText(r), fg: previewColorFor(selected), dim: true}
-	},
+	}},
 }
 
 // knownToken reports whether a name may appear in a row.

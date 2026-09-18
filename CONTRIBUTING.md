@@ -1,0 +1,73 @@
+# Contributing
+
+## Build and test
+
+```bash
+make build   # bin/herdr-switcher-plus
+make ci      # gofmt, vet, generated docs, tests, coverage floor
+make link    # build, then link this working copy into the running Herdr session
+make run     # print the agent list without opening a pane
+```
+
+`make help` lists every target.
+
+## Documentation is generated
+
+The token, sort-mode and status tables in `README.md`,
+`docs/configuration.md`, `example-config.toml` and `AGENTS.md` are written by
+`make docs` from the registries in the code:
+
+| registry | generates |
+|---|---|
+| `internal/ui.tokens` | the token reference |
+| `internal/agents.Modes` | the sort-mode table |
+| `internal/agents.StatusKeys` | the status-key table |
+
+Only the regions between `BEGIN GENERATED` and `END GENERATED` markers are
+rewritten, so the prose around them stays hand-written.
+
+Adding a token means one registry entry carrying its description. Run
+`make docs`, and the reference updates everywhere. `make ci` fails when the
+files are out of date, so the documentation cannot drift from the code without
+CI noticing.
+
+## Coverage
+
+`make cover` holds a floor of 99% of statements. Three statements are knowingly
+uncovered, each a one-line boundary to the outside world with no logic in it:
+`exec.Command`, `tea.NewProgram`, and the `os.Exit` shim in `main`.
+
+Everything else sits behind a package variable a test replaces. If a fourth
+statement becomes untestable, the seam is in the wrong place rather than the
+floor being too high.
+
+Coverage is measured with `-coverpkg` across the internal packages and the root,
+so a call from one package into another counts. `tools/` is excluded: it is a
+build-time generator, and `make docs-check` runs it end to end in CI.
+
+## Testing the terminal UI
+
+Bubble Tea needs a real PTY and asks the terminal two questions at startup. A
+harness must answer both or it captures an empty screen. `AGENTS.md` has the
+details, along with the two ways an assertion on rendered output goes wrong.
+
+## Releasing
+
+A conventional commit on `main` opens a release pull request through
+release-please, which bumps `version` in `herdr-plugin.toml` and writes the
+changelog. Merging it tags the release, and the release workflow cross-compiles
+all four platforms, writes `SHA256SUMS` and attaches them.
+
+Three places carry the version and must agree: the git tag, `herdr-plugin.toml`,
+and the download URL `scripts/install.sh` builds from it. The release workflow
+fails a tag that disagrees with the manifest.
+
+The `PLATFORMS` list in the `Makefile` and the `uname` cases in
+`scripts/install.sh` name the same four targets. Changing one without the other
+publishes assets nobody fetches, or fetches assets nobody published.
+
+## Commit messages
+
+Conventional commits, because release-please reads them to decide the version
+and write the changelog. `feat:` and `fix:` appear in the changelog, `refactor:`
+and `build:` do not.

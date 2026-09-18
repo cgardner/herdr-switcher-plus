@@ -66,3 +66,28 @@ func (f StatusFilter) Keep(rows []Row) []Row {
 	}
 	return out
 }
+
+// StatusDoc is one row of the generated status-filter reference.
+type StatusDoc struct {
+	Key         string
+	Shows       string
+	Description string
+}
+
+var statusDescriptions = map[StatusFilter]string{
+	StatusAll:     "every agent, including any Herdr could not classify",
+	StatusBlocked: "waiting on an answer from you",
+	StatusWorking: "busy, and needing nobody",
+	StatusIdle:    "ready for the next instruction",
+	StatusDone:    "finished work nobody has looked at yet",
+}
+
+// StatusDocs returns every filter key in the order the picker's footer lists
+// them.
+func StatusDocs() []StatusDoc {
+	out := make([]StatusDoc, 0, len(StatusKeys))
+	for _, e := range StatusKeys {
+		out = append(out, StatusDoc{Key: e.Key, Shows: e.Status.Label(), Description: statusDescriptions[e.Status]})
+	}
+	return out
+}
