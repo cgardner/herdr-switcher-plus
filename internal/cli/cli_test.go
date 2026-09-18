@@ -3,12 +3,16 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cgardner/herdr-switcher-plus/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/config"
 	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
+	"github.com/cgardner/herdr-switcher-plus/internal/layout"
 	"github.com/cgardner/herdr-switcher-plus/internal/transcript"
 	"github.com/cgardner/herdr-switcher-plus/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,7 +46,8 @@ type harness struct {
 func setup(t *testing.T, rows []agents.Row, collectErr error) *harness {
 	t.Helper()
 	h := &harness{}
-	c, lm, sm, f, rp := collect, loadMode, saveMode, focus, runProgram
+	c, lm, sm, f, rp, lc := collect, loadMode, saveMode, focus, runProgram, loadConfig
+	loadConfig = func() (config.Config, error) { return config.Config{}, nil }
 
 	collect = func() ([]agents.Row, error) { return rows, collectErr }
 	loadMode = func() string { return "" }
@@ -54,7 +59,7 @@ func setup(t *testing.T, rows []agents.Row, collectErr error) *harness {
 	}
 
 	t.Setenv(modeEnv, "")
-	t.Cleanup(func() { collect, loadMode, saveMode, focus, runProgram = c, lm, sm, f, rp })
+	t.Cleanup(func() { collect, loadMode, saveMode, focus, runProgram, loadConfig = c, lm, sm, f, rp, lc })
 	return h
 }
 
@@ -256,7 +261,7 @@ func stubProgram(t *testing.T, p program) {
 }
 
 func TestRunTeaReturnsTheFinalModel(t *testing.T) {
-	want := ui.New(fixture(), agents.ModeOldest, agents.StatusAll)
+	want := ui.New(fixture(), agents.ModeOldest, agents.StatusAll, ui.DefaultSpec)
 	stubProgram(t, fakeProgram{model: want})
 	got, err := runTea(ui.Model{})
 	if err != nil {
@@ -317,5 +322,62 @@ func TestVersionFlagSkipsCollecting(t *testing.T) {
 func TestVersionDefaultsToDev(t *testing.T) {
 	if version != "dev" {
 		t.Errorf("version = %q, want dev in a source build", version)
+	}
+}
+
+// A malformed config stops the switcher rather than silently reverting to the
+// built-in layout, which would leave the user with no idea why nothing changed.
+func TestABadConfigExitsOne(t *testing.T) {
+	setup(t, fixture(), nil)
+	loadConfig = func() (config.Config, error) {
+		return config.Config{}, errors.New("config.toml: unknown token \"nonsense\"")
+	}
+	code, _, errOut := run()
+	if code != 1 {
+		t.Errorf("exit %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "nonsense") {
+		t.Errorf("stderr should carry the config error: %q", errOut)
+	}
+}
+
+// The layout from the config reaches the model.
+func TestTheConfiguredLayoutReachesTheModel(t *testing.T) {
+	h := setup(t, fixture(), nil)
+	var cfg config.Config
+	cfg.UI.Rows = [][]layout.Token{{{Name: "label"}}}
+	loadConfig = func() (config.Config, error) { return cfg, nil }
+
+	if code, _, _ := run(); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if !h.ran {
+		t.Fatal("the program should have run")
+	}
+}
+
+// The real loader validates against the token registry, so a config naming an
+// unknown token is rejected rather than silently drawing nothing.
+func TestDefaultConfigValidatesAgainstTheTokenRegistry(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
+
+	path := filepath.Join(dir, config.FileName)
+	if err := os.WriteFile(path, []byte("[ui]\nrows = [[\"age\", \"nonsense\"]]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := defaultConfig(); err == nil || !strings.Contains(err.Error(), "nonsense") {
+		t.Errorf("got %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte("[ui]\nrows = [[\"age\", \"label\"]]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := defaultConfig()
+	if err != nil {
+		t.Fatalf("a valid config should load: %v", err)
+	}
+	if len(cfg.UI.Rows) != 1 {
+		t.Errorf("got %+v", cfg.UI.Rows)
 	}
 }

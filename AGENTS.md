@@ -58,12 +58,47 @@ is surprising: the repository when it differs from the space name, the branch
 when it differs from the space name and is not the default. Adding a field that
 is usually implied costs width on every row and tells the reader nothing.
 
+## The layout config speaks Herdr's language
+
+`rows = [[...]]` with `{ token, fg, bold, dim, rules }` tables is Herdr's own
+sidebar vocabulary, adopted wholesale rather than invented. The limits are
+Herdr's too: 16 rows, 16 tokens per row, 16 rules per token. Keep it that way.
+A second dialect for the same job is the thing this avoids.
+
+`ui.DefaultSpec` is written in that vocabulary, so the built-in look is not a
+special case the config cannot reproduce. A test asserts it validates against
+the token registry.
+
+Adding a token means one entry in `ui.tokens`, and nothing else. The registry
+drives rendering, validation and the error message a bad name earns. A token
+may carry a number, which is what `gt` and `lt` compare against; only `age`
+does, in minutes.
+
+Bold and Dim are `*bool` throughout. Herdr states that an omitted style field
+keeps the contextual default, and a plain bool cannot tell "unset" from "off".
+
+`example-config.toml` is executable documentation: a test extracts every
+commented example and loads it, so the file cannot drift from the registry.
+
+## Asserting on rendered output
+
+Two mistakes cost time here, both in tests rather than code:
+
+- Column positions are runes, not bytes. The selection bar is one column and
+  three bytes, so `strings.Index` reports a selected row further right than it
+  renders.
+- An SGR attribute rides alongside colours (`\x1b[1;97;48;2;48;50;68m`), so a
+  search for `\x1b[1m` misses it. An extended colour spells itself
+  `48;2;R;G;B`, where the 2 is the truecolor marker, so its arguments must be
+  skipped or every backgrounded cell looks faint. `hasSGR` in the ui tests does
+  this correctly.
+
 ## Seams
 
 Anything reaching outside the process sits behind a package variable that a
 test replaces: `herdr.run`, `agents.loadSnapshot`, `agents.indexTranscripts`,
 `agents.readTranscript`, `agents.resolveBranch`, `transcript.openTail`,
-`ui.collectRows`,
+`ui.collectRows`, `cli.loadConfig`,
 `cli.collect`, `cli.loadMode`, `cli.saveMode`, `cli.focus`, `cli.newProgram`.
 
 Keep new outside calls behind the same pattern. `make cover` holds a 99% floor,

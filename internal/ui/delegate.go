@@ -4,41 +4,55 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
+	"github.com/cgardner/herdr-switcher-plus/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/layout"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// delegate renders one agent as two full-width lines and marks the selected
+// DefaultSpec is the layout used when the config says nothing. It is written
+// in the same vocabulary a user would write, so the built-in look is not a
+// special case the configuration cannot reproduce.
+var DefaultSpec = layout.Spec{
+	Rows: [][]layout.Token{
+		{{Name: "age"}, {Name: "label"}, {Name: "state_icon"}, {Name: "state_text"}},
+		{{Name: "role"}, {Name: "message"}},
+	},
+}
+
+// delegate draws each agent according to a layout spec and marks the selected
 // one with a background bar, the way Herdr's own overlays do.
 //
-// It composes every segment itself rather than styling strings up front. A
+// It composes every cell itself rather than styling strings up front. A
 // foreground style emits its own reset at the end of each segment, which would
-// clear the row background part way across the line, so each segment has to
-// carry the background as well as its own color.
+// clear the row background part way across the line, so each cell has to carry
+// the background as well as its own color.
 type delegate struct {
+	spec        layout.Spec
 	selectionBg lipgloss.Color
 }
 
-// Height is two because each agent occupies a title line and a preview line.
-func (d delegate) Height() int { return 2 }
+// Height is the rows in the spec plus the configured gap between agents.
+func (d delegate) Height() int { return len(d.spec.Rows) + d.spec.RowGap }
 
-// Spacing is zero so the list stays dense enough to scan at a glance.
+// Spacing stays zero because the gap belongs to Height, which keeps the
+// selection background covering the blank lines of the selected agent.
 func (d delegate) Spacing() int { return 0 }
 
 // Update satisfies list.ItemDelegate. The delegate holds no state.
 func (d delegate) Update(tea.Msg, *list.Model) tea.Cmd { return nil }
 
-// Render writes the two lines for one agent.
+// Render writes one agent's lines.
 func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	it, ok := li.(item)
 	if !ok {
 		return
 	}
-
 	width := m.Width()
-	if width <= 0 {
+	if width <= 0 || len(d.spec.Rows) == 0 {
 		return
 	}
 	selected := index == m.Index()
@@ -47,41 +61,86 @@ func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	if selected {
 		base = base.Background(d.selectionBg)
 	}
-	seg := func(color string) lipgloss.Style {
-		if color == "" {
-			return base
-		}
-		return base.Foreground(lipgloss.Color(color))
-	}
 
 	// The selection bar replaces the plain gutter, so the marked row reads as
-	// one block rather than two loosely related lines. It is one column wide
-	// and carries a single separating space, which is the whole gap between
-	// the bar and the age.
-	gutter := " "
-	gutterColor := ""
+	// one block rather than several loosely related lines. It is one column
+	// wide and carries a single separating space.
+	gutter, gutterColor := " ", ""
 	if selected {
-		gutter = "▌"
-		gutterColor = accentColor
+		gutter, gutterColor = "▌", accentColor
 	}
 
-	age := it.row.Age(it.now)
-	ageColor := ageColorFor(it.row, it.now, selected)
-	status := it.row.Agent.Status
+	lines := make([]string, 0, d.Height())
+	for ri, row := range d.spec.Rows {
+		line := styled(base, gutterColor, false, false).Render(gutter) + base.Render(" ")
 
-	title := seg(gutterColor).Render(gutter) +
-		base.Render(" ") +
-		seg(ageColor).Render(padLeft(age, it.ageWidth)) +
-		base.Render("  ") +
-		seg(textColorFor(selected)).Render(pad(it.row.Label(), it.labelWidth)) +
-		base.Render(" ") +
-		seg(statusColors[status]).Render(glyph(status)+" "+status)
+		// Rows after the first hang under the first row's second column, so a
+		// message sits below the name it belongs to rather than under the age.
+		if ri > 0 {
+			line += base.Render(strings.Repeat(" ", it.indent))
+		}
 
-	preview := seg(gutterColor).Render(gutter) +
-		base.Render(strings.Repeat(" ", it.ageWidth+3)) +
-		seg(previewColorFor(selected)).Render(roleMark(it.row.Last.Role)+previewText(it.row))
+		for ti, tok := range row {
+			if ti > 0 {
+				line += base.Render(" ")
+			}
+			line += d.cell(base, it, tok, ri, ti, selected)
+		}
+		lines = append(lines, fill(line, width, base))
+	}
+	for i := 0; i < d.spec.RowGap; i++ {
+		lines = append(lines, fill("", width, base))
+	}
+	fmt.Fprint(w, strings.Join(lines, "\n"))
+}
 
-	fmt.Fprint(w, fill(title, width, base)+"\n"+fill(preview, width, base))
+// cell renders one token, folding the contextual default with whatever the
+// config overrides.
+func (d delegate) cell(base lipgloss.Style, it item, tok layout.Token, ri, ti int, selected bool) string {
+	fn, ok := tokens[tok.Name]
+	if !ok {
+		return ""
+	}
+	c := fn(it.row, it.now, selected)
+	style := tok.Style.Resolve(c.text, c.number)
+
+	fg := c.fg
+	if style.Fg != "" {
+		fg = style.Fg
+	}
+	bold := style.Bold != nil && *style.Bold
+	dim := c.dim
+	if style.Dim != nil {
+		dim = *style.Dim
+	}
+
+	text := c.text
+	if w := it.widthAt(ri, ti); w > 0 {
+		if c.alignEnd {
+			text = padLeft(text, w)
+		} else if ti < len(d.spec.Rows[ri])-1 {
+			// The last cell on a line runs to the edge rather than being
+			// padded, so a long message is not cut short by its column.
+			text = pad(text, w)
+		}
+	}
+	return styled(base, fg, bold, dim).Render(text)
+}
+
+// styled derives a cell style from the row base, keeping the selection
+// background attached so the bar survives across every segment.
+func styled(base lipgloss.Style, fg string, bold, dim bool) lipgloss.Style {
+	s := base
+	if fg != "" {
+		s = s.Foreground(lipgloss.Color(fg))
+	}
+	if bold {
+		s = s.Bold(true)
+	}
+	if dim {
+		s = s.Faint(true)
+	}
+	return s
 }
 
 // fill pads a composed line out to the pane width so the background reaches
@@ -93,7 +152,7 @@ func fill(line string, width int, base lipgloss.Style) string {
 	return lipgloss.NewStyle().MaxWidth(width).Render(line)
 }
 
-func previewText(r agentRow) string {
+func previewText(r agents.Row) string {
 	if t := r.Last.Text; t != "" {
 		return t
 	}
@@ -111,4 +170,30 @@ func roleMark(role string) string {
 		return "‹ "
 	}
 	return "  "
+}
+
+// measure computes the column widths for a spec across every agent on screen,
+// plus the indent that continuation rows hang at.
+func measure(spec layout.Spec, rows []agents.Row, now time.Time) (widths [][]int, indent int) {
+	widths = make([][]int, len(spec.Rows))
+	for ri, row := range spec.Rows {
+		widths[ri] = make([]int, len(row))
+		for ti, tok := range row {
+			fn, ok := tokens[tok.Name]
+			if !ok {
+				continue
+			}
+			for _, r := range rows {
+				// selected is false here: no token changes width when it is
+				// selected, only its color.
+				if n := len([]rune(fn(r, now, false).text)); n > widths[ri][ti] {
+					widths[ri][ti] = n
+				}
+			}
+		}
+	}
+	if len(widths) > 0 && len(widths[0]) > 0 {
+		indent = widths[0][0] + 1
+	}
+	return widths, indent
 }

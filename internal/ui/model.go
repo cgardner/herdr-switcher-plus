@@ -6,34 +6,26 @@ import (
 	"time"
 
 	"github.com/cgardner/herdr-switcher-plus/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/layout"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The label column sizes itself to the widest label on screen, within these
-// bounds. A list where nothing carries repository context stays as narrow as it
-// was before, and a list full of worktrees widens only as far as the preview
-// can afford.
-const (
-	labelMinWidth = 20
-	labelMaxWidth = 38
-)
-
-// ageMinWidth fits "now", the longest age that is not a number plus a unit.
-// The column grows past it only when a row actually needs more, so the gap
-// between the selection bar and the age stays one column for the widest age on
-// screen rather than being padded out to a fixed size.
-const ageMinWidth = 3
-
 // Colors are ANSI indexes so the switcher follows whatever palette the
 // terminal already uses. Only the selection background is a hex value,
 // because it has to match Herdr's own overlays rather than the terminal.
 const (
 	accentColor  = "6"
-	staleColor   = "8"
 	previewColor = "8"
+
+	// Age reads as a gradient from live to abandoned. Two bands lumped
+	// yesterday's session together with last month's, which is the distinction
+	// most worth seeing in a list sorted by recency.
+	freshColor  = "2" // under a day: still warm
+	recentColor = "3" // this week: cooling
+	staleColor  = "8" // older: likely finished with
 
 	// On the selection bar the dim gray used elsewhere loses too much
 	// contrast, so stale ages and preview text step up one level.
@@ -57,8 +49,11 @@ var (
 	titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(lipgloss.Color("6")).Padding(0, 1)
 )
 
-// staleAfter is when an age stops reading as recent and turns gray.
-const staleAfter = 24 * time.Hour
+// The boundaries between the age bands.
+const (
+	freshFor  = 24 * time.Hour
+	recentFor = 7 * 24 * time.Hour
+)
 
 func glyph(status string) string {
 	if status == "idle" || status == "unknown" {
@@ -67,9 +62,19 @@ func glyph(status string) string {
 	return "\u25cf"
 }
 
+// ageColorFor grades an age into a band. An unresolved age is treated as the
+// oldest, because an unknown last message is not evidence of recent work.
+//
+// On the selection bar the dim gray loses too much contrast, so the stale band
+// steps up one level there.
 func ageColorFor(r agentRow, now time.Time, selected bool) string {
-	if r.HasLast && now.Sub(r.Last.At) <= staleAfter {
-		return accentColor
+	if r.HasLast {
+		switch age := now.Sub(r.Last.At); {
+		case age <= freshFor:
+			return freshColor
+		case age <= recentFor:
+			return recentColor
+		}
 	}
 	if selected {
 		return selectedDimColor
@@ -102,10 +107,19 @@ type item struct {
 	row agentRow
 	now time.Time
 
-	// labelWidth and ageWidth are shared by every item in one list so the
-	// columns line up down the pane.
-	labelWidth int
-	ageWidth   int
+	// widths and indent are shared by every item in one list so the columns
+	// line up down the pane. widths is indexed by row then token.
+	widths [][]int
+	indent int
+}
+
+// widthAt returns the column width for one cell, or zero when the spec has no
+// such cell.
+func (i item) widthAt(row, token int) int {
+	if row >= len(i.widths) || token >= len(i.widths[row]) {
+		return 0
+	}
+	return i.widths[row][token]
 }
 
 // FilterValue drives the type-to-filter search. Status, agent kind, repository
@@ -160,6 +174,7 @@ func refresh() tea.Msg {
 type Model struct {
 	list     list.Model
 	rows     []agents.Row
+	spec     layout.Spec
 	mode     agents.Mode
 	status   agents.StatusFilter
 	err      error
@@ -183,13 +198,16 @@ func title(mode agents.Mode, status agents.StatusFilter) string {
 	return t
 }
 
-// New builds the switcher from an initial set of rows, a starting mode and a
-// starting status filter.
-func New(rows []agents.Row, mode agents.Mode, status agents.StatusFilter) Model {
-	d := delegate{selectionBg: selectionBackground()}
+// New builds the switcher from an initial set of rows, a starting mode, a
+// starting status filter and the layout to draw them with.
+func New(rows []agents.Row, mode agents.Mode, status agents.StatusFilter, spec layout.Spec) Model {
+	if len(spec.Rows) == 0 {
+		spec = DefaultSpec
+	}
+	d := delegate{spec: spec, selectionBg: selectionBackground()}
 	ordered := append([]agents.Row(nil), rows...)
 	agents.Apply(mode, ordered)
-	l := list.New(toItems(status.Keep(ordered)), d, 0, 0)
+	l := list.New(toItems(status.Keep(ordered), spec), d, 0, 0)
 	l.Title = title(mode, status)
 	l.Styles.Title = titleStyle
 	l.SetShowStatusBar(true)
@@ -203,7 +221,7 @@ func New(rows []agents.Row, mode agents.Mode, status agents.StatusFilter) Model 
 			key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
 		}
 	}
-	return Model{list: l, rows: ordered, mode: mode, status: status, Mode: mode}
+	return Model{list: l, rows: ordered, spec: spec, mode: mode, status: status, Mode: mode}
 }
 
 // reorder re-sorts the rows already in hand.
@@ -223,7 +241,7 @@ func (m *Model) reorder(mode agents.Mode, keepCursor bool) {
 	m.mode, m.Mode = mode, mode
 	agents.Apply(mode, m.rows)
 	visible := m.status.Keep(m.rows)
-	m.list.SetItems(toItems(visible))
+	m.list.SetItems(toItems(visible, m.spec))
 	m.list.Title = title(mode, m.status)
 
 	m.list.Select(0)
@@ -246,42 +264,14 @@ func (m *Model) setStatus(status agents.StatusFilter) {
 	m.reorder(m.mode, false)
 }
 
-func toItems(rows []agents.Row) []list.Item {
+func toItems(rows []agents.Row, spec layout.Spec) []list.Item {
 	now := time.Now()
-	width := labelColumnWidth(rows)
-	ageWidth := ageColumnWidth(rows, now)
+	widths, indent := measure(spec, rows, now)
 	out := make([]list.Item, len(rows))
 	for i, r := range rows {
-		out[i] = item{row: r, now: now, labelWidth: width, ageWidth: ageWidth}
+		out[i] = item{row: r, now: now, widths: widths, indent: indent}
 	}
 	return out
-}
-
-// ageColumnWidth measures the widest age on screen, so the column never pads
-// beyond what some row needs.
-func ageColumnWidth(rows []agents.Row, now time.Time) int {
-	width := ageMinWidth
-	for _, r := range rows {
-		if n := len([]rune(r.Age(now))); n > width {
-			width = n
-		}
-	}
-	return width
-}
-
-// labelColumnWidth measures the widest label and clamps it, so the column
-// grows only as far as the rows actually need.
-func labelColumnWidth(rows []agents.Row) int {
-	width := labelMinWidth
-	for _, r := range rows {
-		if n := len([]rune(r.Label())); n > width {
-			width = n
-		}
-	}
-	if width > labelMaxWidth {
-		return labelMaxWidth
-	}
-	return width
 }
 
 // Init satisfies tea.Model and starts no work, because New already holds rows.

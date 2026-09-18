@@ -1,0 +1,101 @@
+# herdr-switcher-plus configuration.
+#
+# Copy to the directory `herdr plugin config-dir cgardner.herdr-switcher-plus`
+# prints, as config.toml. Every setting is optional, and a missing file means
+# the built-in layout.
+#
+# The vocabulary is Herdr's own: `rows` is a list of rows, each a list of
+# tokens, where a token is a name or a { token, fg, bold, dim, rules } table.
+# Anything you know from configuring [ui.sidebar.agents] applies here.
+
+[ui]
+
+# Blank lines between agents.
+row_gap = 0
+
+# The built-in layout, written out. Tokens available:
+#
+#   age             time since the last message, and a number in minutes
+#                   that gt and lt rules compare against
+#   label           the space, plus repo and branch when not implied
+#   space           the space name alone
+#   repo            repository name
+#   branch          branch name
+#   state_icon      ● or ○
+#   state_text      idle, working, blocked, done, unknown
+#   agent           claude, codex, ...
+#   pane            w5:p1E
+#   cwd             working directory, with home written as ~
+#   terminal_title  the pane title
+#   role            › for your message, ‹ for the agent's
+#   message         the last message
+#
+# A row after the first hangs under the first row's second column, so a
+# message sits below the name it belongs to.
+rows = [
+  ["age", "label", "state_icon", "state_text"],
+  ["role", "message"],
+]
+
+# Omitted style fields keep the contextual default, so overriding one token
+# does not mean restating the whole theme. An explicit `false` does turn a
+# default off.
+#
+# Colors accept an ANSI index as a string ("2") or a hex value ("#a6e3a1").
+# An index follows your terminal theme; a hex value does not.
+
+# --- worked examples, all commented out -------------------------------------
+
+# Age already grades itself: green under a day, yellow under a week, muted
+# after that. This reproduces it explicitly, and is the place to change the
+# bands. The numbers are minutes.
+#
+# rows = [
+#   [ { token = "age", rules = [
+#       { lt = 1440,  fg = "2" },   # under a day
+#       { lt = 10080, fg = "3" },   # under a week
+#       { gt = 10080, fg = "8" },   # older
+#     ]},
+#     "label", "state_icon", "state_text" ],
+#   [ "role", "message" ],
+# ]
+
+# The age was teal rather than green before the bands existed. To get it back:
+#
+# rows = [[{ token = "age", rules = [{ lt = 1440, fg = "6" }] }, "label",
+#          "state_icon", "state_text"], ["role", "message"]]
+
+# Make a blocked agent shout and a working one warm. Rules are ordered and the
+# first match wins, so put the specific case first.
+#
+# rows = [
+#   [ "age", "label", "state_icon",
+#     { token = "state_text", rules = [
+#         { equals = "blocked", fg = "#ff6188", bold = true },
+#         { equals = "working", fg = "#f9e2af" },
+#     ]} ],
+#   [ "role", "message" ],
+# ]
+
+# One line per agent, twice as many on screen.
+#
+# rows = [["age", "state_icon", "label", "agent", "pane"]]
+
+# Add the working directory on its own row.
+#
+# rows = [
+#   ["age", "label", "state_icon", "state_text"],
+#   [{ token = "cwd", dim = true }],
+#   ["role", "message"],
+# ]
+
+# Dim every repository that is not the one you are in today.
+#
+# rows = [
+#   [ "age",
+#     { token = "label", rules = [
+#         { starts_with = "Second Brain", fg = "#89b4fa" },
+#     ]},
+#     "state_icon", "state_text" ],
+#   [ "role", "message" ],
+# ]
