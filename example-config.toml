@@ -91,7 +91,7 @@ rows = [
 #   ["role", "message"],
 # ]
 
-# Dim every repository that is not the one you are in today.
+# Pick out one repository's worktrees from the rest.
 #
 # rows = [
 #   [ "age",

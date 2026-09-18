@@ -21,9 +21,9 @@ func stub(t *testing.T, fn func(string, ...string) ([]byte, error)) *[][]string 
 
 const body = `{"id":"x","result":{"snapshot":{
   "focused_pane_id":"w5:p1",
-  "workspaces":[{"workspace_id":"w5","label":"nix","number":1},{"workspace_id":"w9","label":"","number":4}],
+  "workspaces":[{"workspace_id":"w5","label":"infra","number":1},{"workspace_id":"w9","label":"","number":4}],
   "agents":[{"agent":"claude","agent_status":"idle","pane_id":"w5:p1","tab_id":"w5:t1","workspace_id":"w5",
-             "cwd":"/src/nix","terminal_title_stripped":"nix","state_change_seq":400,
+             "cwd":"/src/nix","terminal_title_stripped":"infra","state_change_seq":400,
              "agent_session":{"kind":"id","value":"uuid-1"}}]}}}`
 
 func TestParseSnapshot(t *testing.T) {
@@ -59,7 +59,7 @@ func TestParseSnapshotRejectsGarbage(t *testing.T) {
 
 func TestWorkspaceResolvesLabelAndNumber(t *testing.T) {
 	s, _ := ParseSnapshot([]byte(body))
-	if l, n := s.Workspace("w5"); l != "nix" || n != 1 {
+	if l, n := s.Workspace("w5"); l != "infra" || n != 1 {
 		t.Errorf("got (%q,%d), want (nix,1)", l, n)
 	}
 }
@@ -172,7 +172,7 @@ func TestFocusReportsAnAgentFocusFailure(t *testing.T) {
 
 const worktreeBody = `{"id":"x","result":{"snapshot":{
   "workspaces":[
-    {"workspace_id":"w5","label":"nix","number":1,
+    {"workspace_id":"w5","label":"infra","number":1,
      "worktree":{"repo_name":"infra-terraform","repo_root":"/c/infra-terraform/",
                  "checkout_path":"/c/infra-terraform/","is_linked_worktree":false}},
     {"workspace_id":"w3R","label":"auth-service","number":2,

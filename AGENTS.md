@@ -88,6 +88,16 @@ keeps the contextual default, and a plain bool cannot tell "unset" from "off".
 `example-config.toml` is executable documentation: a test extracts every
 commented example and loads it, so the file cannot drift from the registry.
 
+## Never put a real session in the documentation
+
+`make demo` runs the switcher against an invented fixture, and every screenshot
+and sample listing comes from it. A real list names an employer, colleagues,
+private repositories and the text of the last message, and this repository is
+public.
+
+Test fixtures use the same invented names. If a new test needs a project name,
+take one from `scripts/demo_fixture.py` rather than from the machine you are on.
+
 ## Reference documentation is generated
 
 The token, sort-mode and status tables are written by `make docs` from the

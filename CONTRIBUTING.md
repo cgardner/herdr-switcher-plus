@@ -11,6 +11,23 @@ make run     # print the agent list without opening a pane
 
 `make help` lists every target.
 
+## Screenshots
+
+`make demo` opens the switcher on fabricated sessions. Take documentation
+screenshots from that, never from a real list.
+
+A real list names your employer, your colleagues, your private repositories and
+whatever the last message happened to say, and a README is public forever. The
+fixture in `scripts/demo_fixture.py` is invented, and is built to show what the
+switcher is for: a repository with several linked worktrees, a space whose name
+hides its branch, an ordinary checkout in a differently named space, a space
+that is no checkout at all, and ages spanning all three colour bands.
+
+It runs the real rendering path. Nothing about the picture is faked except the
+sessions, so it stays honest while carrying nothing real.
+
+Test fixtures use the same invented names, for the same reason.
+
 ## Documentation is generated
 
 The token, sort-mode and status tables in `README.md`,

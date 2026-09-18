@@ -30,8 +30,8 @@ func TestLabelDistinguishesALinkedWorktree(t *testing.T) {
 	if got := linked.Label(); got != "platform ⑂ auth-service" {
 		t.Errorf("got %q", got)
 	}
-	plain := labelled("nix", "infra-terraform", "main", false)
-	if got := plain.Label(); got != "infra-terraform / nix" {
+	plain := labelled("infra", "infra-terraform", "main", false)
+	if got := plain.Label(); got != "infra-terraform / infra" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -53,8 +53,8 @@ func TestLabelCombinesRepositoryAndBranch(t *testing.T) {
 
 // An unresolved branch must not print an empty marker.
 func TestLabelOmitsAnUnresolvedBranch(t *testing.T) {
-	r := labelled("github", "platform", "", true)
-	if got := r.Label(); got != "platform ⑂ github" {
+	r := labelled("notifications", "platform", "", true)
+	if got := r.Label(); got != "platform ⑂ notifications" {
 		t.Errorf("got %q", got)
 	}
 }

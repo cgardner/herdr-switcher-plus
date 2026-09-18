@@ -74,7 +74,7 @@ func TestSubstringFilterEmptyTermKeepsEverything(t *testing.T) {
 // onto the title, and an index inside the title's ANSI color sequence splits
 // it and leaks escape text into the pane.
 func TestSubstringFilterReportsNoMatchedIndexes(t *testing.T) {
-	for _, r := range substringFilter("nix", targets) {
+	for _, r := range substringFilter("infra", targets) {
 		if len(r.MatchedIndexes) != 0 {
 			t.Errorf("MatchedIndexes = %v, want none", r.MatchedIndexes)
 		}

@@ -52,7 +52,7 @@ const bgSequence = "48;2;48;50;68" // #313244 as truecolor
 // Every segment must carry the background. A foreground style emits its own
 // reset, so a single unstyled segment would punch a hole in the bar.
 func TestRenderSelectedRowIsFullyBackgrounded(t *testing.T) {
-	got := render(t, 80, 0, testRow("w1:p1", "nix", "idle", "hello", time.Minute))[0]
+	got := render(t, 80, 0, testRow("w1:p1", "infra", "idle", "hello", time.Minute))[0]
 	for _, line := range strings.Split(got, "\n") {
 		if !strings.Contains(line, bgSequence) {
 			t.Fatalf("line lacks the selection background: %q", line)
@@ -69,7 +69,7 @@ func TestRenderSelectedRowIsFullyBackgrounded(t *testing.T) {
 
 func TestRenderUnselectedRowHasNoBackground(t *testing.T) {
 	rows := []agents.Row{
-		testRow("w1:p1", "nix", "idle", "first", time.Minute),
+		testRow("w1:p1", "infra", "idle", "first", time.Minute),
 		testRow("w2:p1", "docs", "idle", "second", time.Hour),
 	}
 	got := render(t, 80, 0, rows...)[1]
@@ -81,7 +81,7 @@ func TestRenderUnselectedRowHasNoBackground(t *testing.T) {
 // The bar has to reach the right edge, or the highlight looks ragged.
 func TestRenderPadsBothLinesToTheFullWidth(t *testing.T) {
 	for _, width := range []int{40, 80, 120} {
-		got := render(t, width, 0, testRow("w1:p1", "nix", "idle", "short", time.Minute))[0]
+		got := render(t, width, 0, testRow("w1:p1", "infra", "idle", "short", time.Minute))[0]
 		for _, line := range strings.Split(got, "\n") {
 			if n := lipgloss.Width(line); n != width {
 				t.Errorf("width %d: line rendered %d columns: %q", width, n, visible(line))
@@ -92,7 +92,7 @@ func TestRenderPadsBothLinesToTheFullWidth(t *testing.T) {
 
 func TestRenderTruncatesOverlongText(t *testing.T) {
 	long := strings.Repeat("abcdefghij ", 40)
-	got := render(t, 60, 0, testRow("w1:p1", "nix", "idle", long, time.Minute))[0]
+	got := render(t, 60, 0, testRow("w1:p1", "infra", "idle", long, time.Minute))[0]
 	for _, line := range strings.Split(got, "\n") {
 		if n := lipgloss.Width(line); n > 60 {
 			t.Errorf("line overflowed to %d columns", n)
@@ -104,7 +104,7 @@ func TestRenderTruncatesOverlongText(t *testing.T) {
 // must produce nothing rather than a negative-length pad.
 func TestRenderAtZeroWidthWritesNothing(t *testing.T) {
 	d := delegate{spec: DefaultSpec, selectionBg: lipgloss.Color("#313244")}
-	l := list.New(toItems([]agents.Row{testRow("w1:p1", "nix", "idle", "x", time.Minute)}, DefaultSpec), d, 0, 0)
+	l := list.New(toItems([]agents.Row{testRow("w1:p1", "infra", "idle", "x", time.Minute)}, DefaultSpec), d, 0, 0)
 	var buf bytes.Buffer
 	d.Render(&buf, l, 0, l.Items()[0])
 	if buf.Len() != 0 {
@@ -114,7 +114,7 @@ func TestRenderAtZeroWidthWritesNothing(t *testing.T) {
 
 func TestRenderSelectionBarOnlyOnTheSelectedRow(t *testing.T) {
 	rows := []agents.Row{
-		testRow("w1:p1", "nix", "idle", "first", time.Minute),
+		testRow("w1:p1", "infra", "idle", "first", time.Minute),
 		testRow("w2:p1", "docs", "idle", "second", time.Hour),
 	}
 	out := render(t, 80, 1, rows...)
@@ -163,7 +163,7 @@ func TestDelegateGeometry(t *testing.T) {
 }
 
 func TestPreviewTextFallsBackThroughMessageThenTitle(t *testing.T) {
-	r := testRow("w1:p1", "nix", "idle", "the message", time.Minute)
+	r := testRow("w1:p1", "infra", "idle", "the message", time.Minute)
 	if got := previewText(r); got != "the message" {
 		t.Errorf("got %q, want the message", got)
 	}

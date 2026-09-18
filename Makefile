@@ -82,6 +82,10 @@ link: build ## Link this working copy into the running Herdr session
 unlink: ## Remove the linked plugin from the running Herdr session
 	@herdr plugin unlink cgardner.$(BINARY) >/dev/null && echo "unlinked"
 
+.PHONY: demo
+demo: build ## Open the switcher on fabricated sessions, for screenshots
+	@bash scripts/demo.sh
+
 .PHONY: run
 run: build ## Print the agent list without opening a pane
 	@./bin/$(BINARY) --list

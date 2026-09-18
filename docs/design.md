@@ -32,11 +32,11 @@ Measured against a live 12-agent session:
 
 | session | age by mtime | age by last message |
 |---|---|---|
-| `nix` | 31m | **52h** |
-| `github` | 1m | **25h** |
-| `billing` | 37m | **64h** |
+| A | 31m | **52h** |
+| B | 1m | **25h** |
+| C | 37m | **64h** |
 
-Sorting on mtime ranked `github` 2nd when it belonged in 9th place. So this
+Sorting on mtime ranked session B 2nd when it belonged in 9th place. So this
 plugin scans each transcript backwards for the newest entry of type `user` or
 `assistant` that carries a timestamp, and sorts on that.
 
@@ -52,7 +52,7 @@ space name does not already imply it:
 | label | meaning |
 |---|---|
 | `dotfiles` | the space name tells you everything |
-| `infra-terraform / nix` | an ordinary checkout in a differently named space |
+| `infra-terraform / infra` | an ordinary checkout in a differently named space |
 | `platform ⑂ auth-service` | a linked worktree of another repository |
 | `web-client  @redesign-nav` | a space whose name hides its branch |
 
@@ -62,7 +62,7 @@ is not `main` or `master`. On a live 12-agent session that left five of twelve
 rows silent, and the label column sizes itself to what the rows need.
 
 The alternative layouts were worse in practice. A separate repository column
-made half the rows repeat themselves (`web-client  web-client`) while
+made half the rows repeat themselves (`api-gateway  api-gateway`) while
 spending width the message preview needed. A third line per agent carried more
 but dropped the visible list by a third.
 
