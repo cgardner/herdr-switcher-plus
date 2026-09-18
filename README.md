@@ -9,18 +9,18 @@ Herdr's own sidebar cannot produce on its own.
 ```
  agents · last message
  12 items
-▌  now  herdr-switcher-plus                  ● working
-▌       ‹ [Bash]
-   24m  Second Brain ⑂ software-factory      ○ idle
-        ‹ Saved into the existing GitHub auth memory rather than a second file…
-    6h  scouts-scraping  @scoutbook-plus-api ○ idle
-        › Authentication successful. Connected to the Salesforce Docs MCP.
-    1d  rootstock ⑂ comment-rules            ○ idle
-        ‹ Saved that to project memory — it is a standing constraint, not a de…
-    2d  zmk-config                           ○ idle
-        › /install-slack-app
-    2d  nix-darwin / nix                     ○ idle
-        ‹ The Flight Deck is republished in place: https://claude.ai/code/arti…
+▌ now  herdr-switcher-plus                  ● working
+▌      ‹ [Bash]
+  24m  Second Brain ⑂ software-factory      ○ idle
+       ‹ Saved into the existing GitHub auth memory rather than a second file…
+   6h  scouts-scraping  @scoutbook-plus-api ○ idle
+       › Authentication successful. Connected to the Salesforce Docs MCP.
+   1d  rootstock ⑂ comment-rules            ○ idle
+       ‹ Saved that to project memory — it is a standing constraint, not a de…
+   2d  zmk-config                           ○ idle
+       › /install-slack-app
+   2d  nix-darwin / nix                     ○ idle
+       ‹ The Flight Deck is republished in place: https://claude.ai/code/arti…
 
  ↑/k up • ↓/j down • / filter • enter jump • s/S sort • r refresh • q quit
 ```

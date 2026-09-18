@@ -55,11 +55,13 @@ func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	}
 
 	// The selection bar replaces the plain gutter, so the marked row reads as
-	// one block rather than two loosely related lines.
-	gutter := "  "
+	// one block rather than two loosely related lines. It is one column wide
+	// and carries a single separating space, which is the whole gap between
+	// the bar and the age.
+	gutter := " "
 	gutterColor := ""
 	if selected {
-		gutter = "▌ "
+		gutter = "▌"
 		gutterColor = accentColor
 	}
 
@@ -68,14 +70,15 @@ func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	status := it.row.Agent.Status
 
 	title := seg(gutterColor).Render(gutter) +
-		seg(ageColor).Render(padLeft(age, 4)) +
+		base.Render(" ") +
+		seg(ageColor).Render(padLeft(age, it.ageWidth)) +
 		base.Render("  ") +
 		seg(textColorFor(selected)).Render(pad(it.row.Label(), it.labelWidth)) +
 		base.Render(" ") +
 		seg(statusColors[status]).Render(glyph(status)+" "+status)
 
 	preview := seg(gutterColor).Render(gutter) +
-		base.Render(strings.Repeat(" ", 5)) +
+		base.Render(strings.Repeat(" ", it.ageWidth+3)) +
 		seg(previewColorFor(selected)).Render(roleMark(it.row.Last.Role)+previewText(it.row))
 
 	fmt.Fprint(w, fill(title, width, base)+"\n"+fill(preview, width, base))

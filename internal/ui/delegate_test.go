@@ -239,3 +239,74 @@ func TestFilterValueCarriesRepositoryAndBranch(t *testing.T) {
 		}
 	}
 }
+
+// The gap between the selection bar and the age is one column for the widest
+// age on screen. A fixed-width age column padded shorter ages out further,
+// which is what made the bar look detached from the row.
+func TestSelectionBarSitsOneColumnFromTheWidestAge(t *testing.T) {
+	rows := []agents.Row{
+		testRow("w1:p1", "alpha", "idle", "m", 30*time.Second), // "now", 3 wide
+		testRow("w2:p1", "beta", "idle", "m", 2*time.Hour),     // "2h",  2 wide
+	}
+	lines := strings.Split(visible(render(t, 90, 0, rows...)[0]), "\n")
+	if got := lines[0]; !strings.HasPrefix(got, "▌ now") {
+		t.Errorf("widest age should sit one column from the bar, got %q", got[:12])
+	}
+}
+
+// runeIndex reports where a substring starts in columns rather than bytes. The
+// selection bar is three bytes wide and one column, so strings.Index would
+// report a selected row as further right than it renders.
+func runeIndex(line, sub string) int {
+	at := strings.Index(line, sub)
+	if at < 0 {
+		return -1
+	}
+	return len([]rune(line[:at]))
+}
+
+// A narrower age is right-aligned into the same column, so the label column
+// still lines up down the pane.
+func TestShorterAgesStayRightAligned(t *testing.T) {
+	rows := []agents.Row{
+		testRow("w1:p1", "alpha", "idle", "m", 30*time.Second),
+		testRow("w2:p1", "beta", "idle", "m", 2*time.Hour),
+	}
+	out := render(t, 90, 0, rows...)
+	first := strings.Split(visible(out[0]), "\n")[0]
+	second := strings.Split(visible(out[1]), "\n")[0]
+	if runeIndex(first, "alpha") != runeIndex(second, "beta") {
+		t.Errorf("label column is ragged:\n%q\n%q", first, second)
+	}
+}
+
+// A four-character age widens the column rather than colliding with the bar.
+func TestAWideAgeKeepsItsSeparatingSpace(t *testing.T) {
+	old := testRow("w1:p1", "ancient", "idle", "m", 400*24*time.Hour)
+	line := strings.Split(visible(render(t, 90, 0, old)[0]), "\n")[0]
+	if !strings.HasPrefix(line, "▌ 400d") {
+		t.Errorf("got %q, want the bar, one space, then 400d", line[:12])
+	}
+}
+
+func TestAgeColumnWidth(t *testing.T) {
+	now := time.Now()
+	short := []agents.Row{testRow("p", "s", "idle", "m", 2*time.Hour)} // "2h"
+	if got := ageColumnWidth(short, now); got != ageMinWidth {
+		t.Errorf("width = %d, want the minimum %d", got, ageMinWidth)
+	}
+	wide := []agents.Row{testRow("p", "s", "idle", "m", 400*24*time.Hour)} // "400d"
+	if got := ageColumnWidth(wide, now); got != 4 {
+		t.Errorf("width = %d, want 4", got)
+	}
+}
+
+// The preview line indents to the label column, so the message sits under the
+// name it belongs to whatever the age column measures.
+func TestPreviewIndentsToTheLabelColumn(t *testing.T) {
+	r := testRow("w1:p1", "alpha", "idle", "the message", time.Minute)
+	lines := strings.Split(visible(render(t, 90, 0, r)[0]), "\n")
+	if runeIndex(lines[0], "alpha") != runeIndex(lines[1], "‹") {
+		t.Errorf("preview marker is not under the label:\n%q\n%q", lines[0], lines[1])
+	}
+}
