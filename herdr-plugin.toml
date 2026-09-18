@@ -8,10 +8,11 @@ min_herdr_version = "0.9.0"
 description = "An agent switcher with several orderings. Sorts by last real message, by what needs attention, by space or by age, and jumps to the pane you pick."
 platforms = ["macos", "linux"]
 
-# A GitHub install compiles from source, so the installing machine needs the Go
-# toolchain. `plugin link` users run this by hand.
+# A GitHub install fetches the prebuilt binary for the platform and compiles
+# only when no release asset matches, so the Go toolchain is a fallback rather
+# than a requirement. `plugin link` users run `make build` by hand.
 [[build]]
-command = ["go", "build", "-o", "bin/herdr-switcher-plus", "."]
+command = ["bash", "scripts/install.sh"]
 
 # The picker. A popup keeps the surrounding layout visible, which matters when
 # the point of the list is deciding where to go next.

@@ -127,18 +127,20 @@ tail, and the whole run takes about **20 ms**.
 herdr plugin install cgardner/herdr-switcher-plus
 ```
 
-The install compiles from source, so the machine needs the Go toolchain.
+That fetches the prebuilt binary for your platform from the matching GitHub
+release. The Go toolchain is needed only when no release asset matches, in
+which case the install compiles from source instead.
 
 For local development:
 
 ```bash
 git clone https://github.com/cgardner/herdr-switcher-plus
 cd herdr-switcher-plus
-go build -o bin/herdr-switcher-plus .
-herdr plugin link "$PWD"
+make link
 ```
 
-`plugin link` skips the `[[build]]` step, so build the binary by hand first.
+`plugin link` skips the `[[build]]` step, so `make link` builds the binary
+first. `make help` lists the rest.
 
 ## Open it
 
@@ -257,10 +259,23 @@ catppuccin sets the color explicitly through one of the first two.
 ## Develop
 
 ```bash
-go test ./...
-go vet ./...
-go test ./... -coverprofile=cover.out && go tool cover -func=cover.out
+make ci      # gofmt, go vet, tests, and the coverage floor
+make dist    # cross-compile every released platform
 ```
+
+`AGENTS.md` records the findings that are not visible in the code: the Herdr
+API behavior that no documentation states, why the file modification time is
+unusable for ordering, and how to drive the terminal UI in a test.
+
+## Releasing
+
+A conventional commit on `main` opens a release pull request through
+release-please, which bumps `version` in `herdr-plugin.toml` and the changelog.
+Merging it tags the release, and the release workflow cross-compiles all four
+platforms, writes `SHA256SUMS` and attaches them.
+
+The tag, the manifest version and the download URL in `scripts/install.sh` must
+agree. The release workflow fails a tag that disagrees with the manifest.
 
 Coverage is 99.8% of statements, with four of the six packages at 100%. The
 three uncovered statements are the one-line boundaries to the outside world,

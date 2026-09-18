@@ -50,6 +50,10 @@ func runTea(m ui.Model) (ui.Model, error) {
 	return out, nil
 }
 
+// version is stamped at build time from the version in herdr-plugin.toml, so
+// a released binary can state which build it is. See the Makefile.
+var version = "dev"
+
 // modeEnv carries a starting sort from an action. A plugin pane entrypoint has
 // one fixed command, so `herdr plugin pane open --env` is the only way an
 // action can ask that command for a different ordering.
@@ -60,10 +64,16 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("herdr-switcher-plus", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	plain := fs.Bool("list", false, "print the sorted agents as plain text and exit")
+	showVersion := fs.Bool("version", false, "print the version and exit")
 	sortFlag := fs.String("sort", "", "sort mode: "+modeNames()+" (default: the last mode used)")
 	statusFlag := fs.String("status", "", "show one state only: blocked, working, idle, done (or the picker keys b/w/i/d)")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+
+	if *showVersion {
+		fmt.Fprintln(stdout, "herdr-switcher-plus", version)
+		return 0
 	}
 
 	mode := resolveMode(*sortFlag)

@@ -289,3 +289,33 @@ type otherModel struct{}
 func (otherModel) Init() tea.Cmd                         { return nil }
 func (o otherModel) Update(tea.Msg) (tea.Model, tea.Cmd) { return o, nil }
 func (otherModel) View() string                          { return "" }
+
+// The release build stamps the version in, so a released binary can say which
+// build it is. The default keeps a source build honest about not being one.
+func TestVersionFlag(t *testing.T) {
+	setup(t, fixture(), nil)
+	prev := version
+	version = "1.2.3"
+	t.Cleanup(func() { version = prev })
+
+	code, out, _ := run("--version")
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if !strings.Contains(out, "1.2.3") || !strings.Contains(out, "herdr-switcher-plus") {
+		t.Errorf("stdout = %q", out)
+	}
+}
+
+func TestVersionFlagSkipsCollecting(t *testing.T) {
+	setup(t, nil, errors.New("socket gone"))
+	if code, _, _ := run("--version"); code != 0 {
+		t.Errorf("exit %d: --version must not need a Herdr server", code)
+	}
+}
+
+func TestVersionDefaultsToDev(t *testing.T) {
+	if version != "dev" {
+		t.Errorf("version = %q, want dev in a source build", version)
+	}
+}
