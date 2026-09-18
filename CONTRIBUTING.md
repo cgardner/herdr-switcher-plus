@@ -14,7 +14,8 @@ make run     # print the agent list without opening a pane
 ## Screenshots
 
 `make demo` opens the switcher on fabricated sessions. Take documentation
-screenshots from that, never from a real list.
+screenshots from that, never from a real list. `docs/images/switcher.png` was
+taken that way.
 
 A real list names your employer, your colleagues, your private repositories and
 whatever the last message happened to say, and a README is public forever. The

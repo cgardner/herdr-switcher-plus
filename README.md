@@ -6,28 +6,7 @@ offers five orderings, filters as you type, and jumps to the pane you pick.
 The default ordering is the time of each session's **last real message**, which
 Herdr's own sidebar cannot produce on its own.
 
-```
- agents · last message
- 8 items
-▌ now api-gateway               ● working
-▌     ‹ Rate limiter is in. Added the burst case to the table test and it passes.
-   2m platform ⑂ auth-service   ● blocked
-      ‹ Two ways to expire the refresh token. Which do you want?
-   8m platform ⑂ billing        ● done
-      ‹ Backfill finished. 41,882 invoices migrated, none rejected.
-  45m web-client  @redesign-nav ○ idle
-      › Make the sidebar collapse below 900px.
-   3h dotfiles                  ○ idle
-      ‹ Symlinks rebuilt. Your old zsh config is saved as zshrc.backup.
-   1d platform ⑂ notifications  ○ idle
-      ‹ Digest job now batches per hour. Left the per-event path untouched.
-   2d infra-terraform / infra   ○ idle
-      › Plan looks right, apply it.
-   9d scratchpad                ○ idle
-      ‹ Done for now.
-
- ↑/k up • ↓/j down • / filter • enter jump • s/S sort • a/b/w/i/d status • r refresh • q quit
-```
+![The switcher, showing fabricated sessions](docs/images/switcher.png)
 
 ## Install
 
