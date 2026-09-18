@@ -6,6 +6,10 @@ its last real message. Go, Bubble Tea, no runtime dependencies.
 Run `make help` for the targets and `herdr plugin --help` for the CLI. This file
 carries only what those cannot tell you.
 
+`README.md` is the front door, `docs/configuration.md` the full config
+reference, `docs/design.md` the reasoning behind the decisions, and
+`docs/troubleshooting.md` the failure modes.
+
 ## Do not sort on the file modification time
 
 The single trap in this codebase. Claude Code appends bookkeeping records to a
@@ -70,15 +74,35 @@ special case the config cannot reproduce. A test asserts it validates against
 the token registry.
 
 Adding a token means one entry in `ui.tokens`, and nothing else. The registry
-drives rendering, validation and the error message a bad name earns. A token
-may carry a number, which is what `gt` and `lt` compare against; only `age`
-does, in minutes.
+drives rendering, validation, the error message a bad name earns, and the
+reference tables `make docs` writes. A token may carry a number, which is what
+`gt` and `lt` compare against; only `age` does, in minutes.
+
+<!-- BEGIN GENERATED: token-count -->
+There are 13 tokens, listed in `docs/configuration.md`.
+<!-- END GENERATED: token-count -->
 
 Bold and Dim are `*bool` throughout. Herdr states that an omitted style field
 keeps the contextual default, and a plain bool cannot tell "unset" from "off".
 
 `example-config.toml` is executable documentation: a test extracts every
 commented example and loads it, so the file cannot drift from the registry.
+
+## Reference documentation is generated
+
+The token, sort-mode and status tables are written by `make docs` from the
+registries, into the regions between `BEGIN GENERATED` and `END GENERATED`
+markers. Prose outside those markers is hand-written and stays that way.
+
+Each registry carries its own descriptions, so a new entry documents itself:
+`ui.tokens`, `agents.modeDescriptions`, `agents.statusDescriptions`. Never
+write one of these tables by hand. `make ci` fails when a file is out of date,
+and a missing marker is an error rather than a silent skip.
+
+Coverage uses `-coverpkg` over `./internal/...` and the root. Without it a
+helper called only from a sibling package's tests reads as dead. `tools/` is
+left out deliberately: `make docs-check` runs the generator end to end in CI,
+which proves more than a unit test of its flag parsing.
 
 ## Asserting on rendered output
 

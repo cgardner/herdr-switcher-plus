@@ -154,3 +154,30 @@ func sortBy(rows []Row, primary func(a, b Row) (less bool, equal bool)) {
 		return newer(rows[i], rows[j])
 	})
 }
+
+// ModeDoc is one row of the generated sort-mode reference.
+type ModeDoc struct {
+	Name        string
+	Label       string
+	Description string
+}
+
+// modeDescriptions says what each ordering answers. It lives beside the modes
+// so the reference documentation is generated rather than restated, and a new
+// mode cannot ship with a stale sentence.
+var modeDescriptions = map[Mode]string{
+	ModeRecent:    "where was I?",
+	ModeAttention: "where am I blocking work?",
+	ModeSpace:     "match the sidebar's own order",
+	ModeName:      "a list that does not move as agents work",
+	ModeOldest:    "what can I close?",
+}
+
+// ModeDocs returns every sort mode in cycle order.
+func ModeDocs() []ModeDoc {
+	out := make([]ModeDoc, 0, len(Modes))
+	for _, m := range Modes {
+		out = append(out, ModeDoc{Name: string(m), Label: m.Label(), Description: modeDescriptions[m]})
+	}
+	return out
+}

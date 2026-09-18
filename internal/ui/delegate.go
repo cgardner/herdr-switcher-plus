@@ -97,11 +97,11 @@ func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 // cell renders one token, folding the contextual default with whatever the
 // config overrides.
 func (d delegate) cell(base lipgloss.Style, it item, tok layout.Token, ri, ti int, selected bool) string {
-	fn, ok := tokens[tok.Name]
+	def, ok := tokens[tok.Name]
 	if !ok {
 		return ""
 	}
-	c := fn(it.row, it.now, selected)
+	c := def.render(it.row, it.now, selected)
 	style := tok.Style.Resolve(c.text, c.number)
 
 	fg := c.fg
@@ -179,14 +179,14 @@ func measure(spec layout.Spec, rows []agents.Row, now time.Time) (widths [][]int
 	for ri, row := range spec.Rows {
 		widths[ri] = make([]int, len(row))
 		for ti, tok := range row {
-			fn, ok := tokens[tok.Name]
+			def, ok := tokens[tok.Name]
 			if !ok {
 				continue
 			}
-			for _, r := range rows {
+			for _, row := range rows {
 				// selected is false here: no token changes width when it is
 				// selected, only its color.
-				if n := len([]rune(fn(r, now, false).text)); n > widths[ri][ti] {
+				if n := len([]rune(def.render(row, now, false).text)); n > widths[ri][ti] {
 					widths[ri][ti] = n
 				}
 			}
