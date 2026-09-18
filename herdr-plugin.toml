@@ -1,0 +1,50 @@
+id = "cgardner.herdr-pane-sort"
+name = "pane sort"
+version = "0.1.0"
+
+# Verified against 0.9.1. Needs `agent_session` in the session snapshot, which
+# carries the Claude Code session UUID this plugin matches transcripts on.
+min_herdr_version = "0.9.0"
+description = "An agent switcher with several orderings. Sorts by last real message, by what needs attention, by space or by age, and jumps to the pane you pick."
+platforms = ["macos", "linux"]
+
+# A GitHub install compiles from source, so the installing machine needs the Go
+# toolchain. `plugin link` users run this by hand.
+[[build]]
+command = ["go", "build", "-o", "bin/herdr-pane-sort", "."]
+
+# The picker. A popup keeps the surrounding layout visible, which matters when
+# the point of the list is deciding where to go next.
+[[panes]]
+id = "recent"
+title = "agents by last message"
+placement = "popup"
+width = "88%"
+height = "80%"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-pane-sort\""]
+
+# Herdr runs an action from the plugin root, so the pane open goes through the
+# CLI rather than re-entering the binary.
+[[actions]]
+id = "open"
+title = "pane sort: agents by last message"
+contexts = ["global", "workspace", "pane"]
+description = "Open the agent picker, newest message first."
+command = [
+  "sh",
+  "-c",
+  "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --plugin cgardner.herdr-pane-sort --entrypoint recent --focus",
+]
+
+# A triage entry point. The pane entrypoint has one fixed command, so the
+# starting sort travels as an environment variable rather than an argument.
+[[actions]]
+id = "open-attention"
+title = "pane sort: agents that need attention"
+contexts = ["global", "workspace", "pane"]
+description = "Open the switcher with blocked agents first."
+command = [
+  "sh",
+  "-c",
+  "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --plugin cgardner.herdr-pane-sort --entrypoint recent --focus --env HERDR_PANE_SORT_MODE=attention",
+]
