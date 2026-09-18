@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cgardner/herdr-pane-sort/internal/herdr"
-	"github.com/cgardner/herdr-pane-sort/internal/transcript"
+	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
+	"github.com/cgardner/herdr-switcher-plus/internal/transcript"
 )
 
 // stubSources replaces the three inputs Collect joins and restores them after

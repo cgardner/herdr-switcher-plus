@@ -1,4 +1,4 @@
-module github.com/cgardner/herdr-pane-sort
+module github.com/cgardner/herdr-switcher-plus
 
 go 1.26.7
 

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cgardner/herdr-pane-sort/internal/agents"
-	"github.com/cgardner/herdr-pane-sort/internal/herdr"
-	"github.com/cgardner/herdr-pane-sort/internal/transcript"
+	"github.com/cgardner/herdr-switcher-plus/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
+	"github.com/cgardner/herdr-switcher-plus/internal/transcript"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"

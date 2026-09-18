@@ -3,8 +3,8 @@ package agents
 import (
 	"testing"
 
-	"github.com/cgardner/herdr-pane-sort/internal/herdr"
-	"github.com/cgardner/herdr-pane-sort/internal/transcript"
+	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
+	"github.com/cgardner/herdr-switcher-plus/internal/transcript"
 )
 
 func row(pane, status, space string, number int, ts string) Row {

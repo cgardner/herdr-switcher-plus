@@ -21,7 +21,7 @@ func path() string {
 		if err != nil {
 			return ""
 		}
-		dir = filepath.Join(cache, "herdr-pane-sort")
+		dir = filepath.Join(cache, "herdr-switcher-plus")
 	}
 	return filepath.Join(dir, fileName)
 }

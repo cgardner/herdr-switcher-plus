@@ -6,8 +6,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/cgardner/herdr-pane-sort/internal/herdr"
-	"github.com/cgardner/herdr-pane-sort/internal/transcript"
+	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
+	"github.com/cgardner/herdr-switcher-plus/internal/transcript"
 )
 
 // Row is one agent ready for display.
