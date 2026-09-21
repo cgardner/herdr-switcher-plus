@@ -23,6 +23,11 @@ type Config struct {
 	UI struct {
 		layout.Spec
 	} `toml:"ui"`
+
+	// Pane is how the switcher opens its own pane. Herdr fixes a manifest
+	// pane's placement, so the action reads this and passes it on the command
+	// line instead.
+	Pane Pane `toml:"pane"`
 }
 
 // Dir returns the directory holding the config file, preferring the one Herdr
@@ -72,6 +77,9 @@ func Load(known func(string) bool) (Config, error) {
 		if err := c.UI.Spec.Validate(known); err != nil {
 			return Config{}, fmt.Errorf("%s: %w", path, err)
 		}
+	}
+	if err := c.Pane.Validate(); err != nil {
+		return Config{}, fmt.Errorf("%s: [pane] %w", path, err)
 	}
 	return c, nil
 }

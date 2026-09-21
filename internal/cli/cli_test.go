@@ -381,3 +381,81 @@ func TestDefaultConfigValidatesAgainstTheTokenRegistry(t *testing.T) {
 		t.Errorf("got %+v", cfg.UI.Rows)
 	}
 }
+
+func stubOpen(t *testing.T) *[][]string {
+	t.Helper()
+	var calls [][]string
+	prev := openPane
+	openPane = func(a []string) error { calls = append(calls, a); return nil }
+	t.Cleanup(func() { openPane = prev })
+	return &calls
+}
+
+// --open passes the configured placement through to Herdr. A manifest pane's
+// placement is fixed, so this is the only way it can be a setting.
+func TestOpenUsesTheConfiguredPlacement(t *testing.T) {
+	setup(t, fixture(), nil)
+	calls := stubOpen(t)
+	var cfg config.Config
+	cfg.Pane = config.Pane{Placement: "overlay", Width: "70%", Height: "50%"}
+	loadConfig = func() (config.Config, error) { return cfg, nil }
+
+	if code, _, _ := run("--open"); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if len(*calls) != 1 {
+		t.Fatalf("expected one call, got %v", *calls)
+	}
+	got := strings.Join((*calls)[0], " ")
+	for _, want := range []string{"--placement overlay", "--width 70%", "--height 50%", config.PluginID} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q missing from %q", want, got)
+		}
+	}
+}
+
+func TestOpenPassesTheSortMode(t *testing.T) {
+	setup(t, fixture(), nil)
+	calls := stubOpen(t)
+	if code, _, _ := run("--open", "--sort", "attention"); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if got := strings.Join((*calls)[0], " "); !strings.Contains(got, "HERDR_SWITCHER_PLUS_MODE=attention") {
+		t.Errorf("mode not passed: %q", got)
+	}
+}
+
+// Opening the pane must not read any agent: the pane that opens runs this
+// binary again, and that copy does the reading.
+func TestOpenDoesNotCollect(t *testing.T) {
+	setup(t, nil, errors.New("collect must not run"))
+	stubOpen(t)
+	if code, _, errOut := run("--open"); code != 0 {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+}
+
+func TestOpenReportsAFailure(t *testing.T) {
+	setup(t, fixture(), nil)
+	prev := openPane
+	openPane = func([]string) error { return errors.New("ui_busy") }
+	t.Cleanup(func() { openPane = prev })
+
+	code, _, errOut := run("--open")
+	if code != 1 || !strings.Contains(errOut, "ui_busy") {
+		t.Errorf("code=%d stderr=%q", code, errOut)
+	}
+}
+
+// A bad config stops the open too, rather than falling back to the manifest's
+// placement and leaving the setting looking ignored.
+func TestOpenStopsOnABadConfig(t *testing.T) {
+	setup(t, fixture(), nil)
+	stubOpen(t)
+	loadConfig = func() (config.Config, error) {
+		return config.Config{}, errors.New("config.toml: [pane] placement \"floating\" is not one of ...")
+	}
+	if code, _, errOut := run("--open"); code != 1 || !strings.Contains(errOut, "floating") {
+		t.Errorf("code=%d stderr=%q", code, errOut)
+	}
+}

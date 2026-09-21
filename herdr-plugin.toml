@@ -24,8 +24,10 @@ width = "88%"
 height = "80%"
 command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\""]
 
-# Herdr runs an action from the plugin root, so the pane open goes through the
-# CLI rather than re-entering the binary.
+# The actions re-enter this binary with --open rather than calling
+# `herdr plugin pane open` directly. A manifest pane's placement, width and
+# height are fixed, so the only way they can be settings is for the action to
+# read the config and pass them on the command line.
 [[actions]]
 id = "open"
 title = "switcher+: agents by last message"
@@ -34,7 +36,7 @@ description = "Open the agent picker, newest message first."
 command = [
   "sh",
   "-c",
-  "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --plugin cgardner.herdr-switcher-plus --entrypoint recent --focus",
+  "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\" --open",
 ]
 
 # A triage entry point. The pane entrypoint has one fixed command, so the
@@ -47,5 +49,5 @@ description = "Open the switcher with blocked agents first."
 command = [
   "sh",
   "-c",
-  "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --plugin cgardner.herdr-switcher-plus --entrypoint recent --focus --env HERDR_SWITCHER_PLUS_MODE=attention",
+  "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\" --open --sort attention",
 ]

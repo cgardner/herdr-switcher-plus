@@ -144,3 +144,36 @@ func TestLoadReportsAReadError(t *testing.T) {
 		t.Error("expected a read error")
 	}
 }
+
+func TestLoadReadsThePaneSection(t *testing.T) {
+	withConfig(t, "[pane]\nplacement = \"overlay\"\nwidth = \"70%\"\nheight = \"50%\"\n")
+	c, err := Load(known)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Pane.Placement != "overlay" || c.Pane.Width != "70%" || c.Pane.Height != "50%" {
+		t.Errorf("got %+v", c.Pane)
+	}
+}
+
+// A bad placement names the file and the section, so the message points at the
+// line to fix rather than arriving later as an opaque CLI error.
+func TestLoadRejectsABadPlacement(t *testing.T) {
+	withConfig(t, "[pane]\nplacement = \"floating\"\n")
+	_, err := Load(known)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	for _, want := range []string{FileName, "pane", "floating"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should mention %q: %v", want, err)
+		}
+	}
+}
+
+func TestLoadRejectsABadSize(t *testing.T) {
+	withConfig(t, "[pane]\nwidth = \"wide\"\n")
+	if _, err := Load(known); err == nil {
+		t.Error("expected an error")
+	}
+}

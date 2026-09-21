@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -22,10 +23,20 @@ import (
 // without a Herdr server or a terminal.
 var (
 	collect    = agents.Collect
-	loadConfig = func() (config.Config, error) { return config.Load(ui.KnownToken) }
+	loadConfig = defaultConfig
 	loadMode   = state.LoadMode
 	saveMode   = state.SaveMode
 	focus      = herdr.Focus
+
+	// openPane shells out to Herdr to open the switcher's own pane. It is a
+	// variable so a test can read the arguments without a running server.
+	openPane = func(args []string) error {
+		out, err := exec.Command(herdr.Bin(), args...).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("herdr %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
 
 	runProgram = runTea
 
@@ -71,6 +82,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	plain := fs.Bool("list", false, "print the sorted agents as plain text and exit")
 	showVersion := fs.Bool("version", false, "print the version and exit")
+	open := fs.Bool("open", false, "open the switcher in a Herdr pane, using the placement from the config")
 	sortFlag := fs.String("sort", "", "sort mode: "+modeNames()+" (default: the last mode used)")
 	statusFlag := fs.String("status", "", "show one state only: blocked, working, idle, done (or the picker keys b/w/i/d)")
 	if err := fs.Parse(args); err != nil {
@@ -92,6 +104,16 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
 		return 1
+	}
+
+	// Opening the pane happens before any agent is read: the pane that opens
+	// runs this same binary again, and that copy does the reading.
+	if *open {
+		if err := openPane(cfg.Pane.OpenArgs(*sortFlag)); err != nil {
+			fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+			return 1
+		}
+		return 0
 	}
 
 	rows, err := collect()

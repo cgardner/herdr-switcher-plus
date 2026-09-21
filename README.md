@@ -189,6 +189,16 @@ rows = [
 That is the built-in layout written out: the default is expressed in the same
 language a user would write, not a special case the config cannot reproduce.
 
+A `[pane]` section chooses where the switcher opens, since Herdr fixes a
+manifest pane's placement and offers no way to move it:
+
+```toml
+[pane]
+placement = "popup"   # or overlay, zoomed, split, tab
+width = "88%"
+height = "80%"
+```
+
 **[docs/configuration.md](docs/configuration.md)** is the full reference: every
 token, the style fields, the rules, and the errors a bad file earns.
 `example-config.toml` is a commented copy with worked examples.

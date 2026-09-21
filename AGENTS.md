@@ -127,12 +127,24 @@ Two mistakes cost time here, both in tests rather than code:
   skipped or every backgrounded cell looks faint. `hasSGR` in the ui tests does
   this correctly.
 
+## A manifest pane's placement is fixed
+
+Herdr reads `[[panes]]` once, so the placement, width and height declared there
+cannot change at run time, and it offers no anchor or position parameter at
+all. The actions therefore re-enter this binary with `--open`, which reads the
+config and passes the values to `herdr plugin pane open` on the command line.
+Calling that command directly from the manifest would make the setting
+unreachable.
+
+`--open` must not read any agent. The pane it opens runs this binary again, and
+that copy does the reading.
+
 ## Seams
 
 Anything reaching outside the process sits behind a package variable that a
 test replaces: `herdr.run`, `agents.loadSnapshot`, `agents.indexTranscripts`,
 `agents.readTranscript`, `agents.resolveBranch`, `transcript.openTail`,
-`ui.collectRows`, `cli.loadConfig`,
+`ui.collectRows`, `cli.loadConfig`, `cli.openPane`,
 `cli.collect`, `cli.loadMode`, `cli.saveMode`, `cli.focus`, `cli.newProgram`.
 
 Keep new outside calls behind the same pattern. `make cover` holds a 99% floor,

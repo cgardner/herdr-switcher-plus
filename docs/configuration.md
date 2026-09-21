@@ -54,6 +54,35 @@ below the name it belongs to rather than under the age.
 | `terminal_title` | the pane title as the terminal reports it | — |
 <!-- END GENERATED: tokens -->
 
+## Where the switcher opens
+
+Herdr fixes a manifest pane's placement, so the action reads this section and
+passes it on the command line instead.
+
+```toml
+[pane]
+placement = "popup"
+width = "88%"
+height = "80%"
+```
+
+<!-- BEGIN GENERATED: placements -->
+| placement | what it opens |
+|---|---|
+| `overlay` | a temporary zoom filling the tab |
+| `popup` | session-modal, centred on the pane area, sized by width and height |
+| `split` | a new split beside the current pane |
+| `tab` | a new tab |
+| `zoomed` | the tab, zoomed to one pane |
+<!-- END GENERATED: placements -->
+
+`width` and `height` apply to `popup` only, and accept a number of terminal
+cells or a percentage from `1%` to `100%`. The others size themselves.
+
+A popup centres on the pane area rather than the whole window, so it sits
+off-centre when the sidebar is expanded. Herdr offers no anchor or position
+parameter, so choosing another placement is the only control available.
+
 ## Styles
 
 A token table accepts `fg`, `bold` and `dim`.

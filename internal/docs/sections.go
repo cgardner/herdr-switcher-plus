@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cgardner/herdr-switcher-plus/internal/agents"
+	"github.com/cgardner/herdr-switcher-plus/internal/config"
 	"github.com/cgardner/herdr-switcher-plus/internal/ui"
 )
 
@@ -22,9 +23,11 @@ func Targets() map[string][]Section {
 		},
 		filepath.Join("docs", "configuration.md"): {
 			{Name: "tokens", Body: TokenTable()},
+			{Name: "placements", Body: PlacementTable()},
 		},
 		"example-config.toml": {
 			{Name: "tokens", Body: Comment(TokenList())},
+			{Name: "placements", Body: Comment(PlacementList())},
 		},
 		"AGENTS.md": {
 			{Name: "token-count", Body: TokenCount()},
@@ -75,6 +78,30 @@ func TokenList() string {
 		if t.Numeric != "" {
 			fmt.Fprintf(&b, "  %-*s  gt and lt compare against this, in %s\n", width, "", t.Numeric)
 		}
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// PlacementTable renders the pane placements Herdr offers.
+func PlacementTable() string {
+	rows := make([][]string, 0, len(config.Placements))
+	for _, name := range config.PlacementNames() {
+		rows = append(rows, []string{"`" + name + "`", config.Placements[name]})
+	}
+	return Table([]string{"placement", "what it opens"}, rows)
+}
+
+// PlacementList is the plain form for a TOML comment.
+func PlacementList() string {
+	var b strings.Builder
+	width := 0
+	for _, name := range config.PlacementNames() {
+		if len(name) > width {
+			width = len(name)
+		}
+	}
+	for _, name := range config.PlacementNames() {
+		fmt.Fprintf(&b, "  %-*s  %s\n", width, name, config.Placements[name])
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

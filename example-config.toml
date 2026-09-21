@@ -8,6 +8,25 @@
 # tokens, where a token is a name or a { token, fg, bold, dim, rules } table.
 # Anything you know from configuring [ui.sidebar.agents] applies here.
 
+# Where the switcher opens. Herdr fixes a manifest pane's placement, so the
+# action reads this and passes it on the command line instead.
+#
+# BEGIN GENERATED: placements
+#   overlay  a temporary zoom filling the tab
+#   popup    session-modal, centred on the pane area, sized by width and height
+#   split    a new split beside the current pane
+#   tab      a new tab
+#   zoomed   the tab, zoomed to one pane
+# END GENERATED: placements
+#
+# width and height apply to popup only, and accept terminal cells or a
+# percentage from 1% to 100%. A popup centres on the pane area rather than the
+# whole window, so it sits off-centre when the sidebar is expanded.
+[pane]
+placement = "popup"
+width = "88%"
+height = "80%"
+
 [ui]
 
 # Blank lines between agents.
