@@ -72,6 +72,34 @@ pane's repository, so covering every space would mean one call per repository.
 Reading `.git/HEAD` in each checkout answers them all at once, in about 2 ms
 across seventeen spaces.
 
+## The tree view
+
+Herdr gives each linked worktree a workspace of its own. A tree with the
+workspace at the root therefore has exactly one checkout under each workspace,
+which adds a level and says nothing. The tree groups on the repository
+instead, so that the worktrees of one repository sit together.
+
+The grouping key is `repo_key`, the git directory that every checkout of a
+repository shares. `repo_root` is not safe as a key: Herdr reports it with a
+trailing slash for some checkouts and without one for others.
+
+A repository with only one workspace is not given a level. The workspace takes
+its place at the root and uses the label rule above, so that a group of one
+does not cost a line.
+
+An open group shows no summary, because its panes show the same status and age
+on the lines below. A closed group shows the most urgent status, the newest age
+and the agent count, because those panes are then out of sight.
+
+The tree draws its own lines rather than use the bubbles list. The list items
+are flat, and the list filter reorders them. The tree still pages the way the list does,
+with the list's own pager dots, so that the two views read alike.
+
+`agent focus` rejects a shell pane with `agent_not_found`, and the CLI has no
+command that focuses a pane by its ID. The `pane.focus` socket method does, so
+a shell pane is focused over the socket. An agent pane still goes through
+`agent focus`, the path the list uses.
+
 ## Selected row
 
 The selected agent gets a full-width background bar and a left marker, the way

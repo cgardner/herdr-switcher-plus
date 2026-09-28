@@ -38,6 +38,15 @@ out of the binary or found by probing, and each one cost real time:
 - **The built-in picker filters with `a/b/w/i/d`** (all, blocked, working, idle,
   done). The switcher mirrors those keys. The meanings are inferred from the key
   letters, because nothing documents that overlay.
+- **A shell pane has no CLI focus command.** `agent focus` rejects it with
+  `agent_not_found`, and `pane focus` only moves in a direction. The
+  `pane.focus` socket method takes a `pane_id`. The socket at
+  `HERDR_SOCKET_PATH` speaks newline-delimited JSON: `{id, method, params}` in,
+  and `{id, result}` or `{id, error: {code, message}}` out.
+  `herdr api schema --json` lists every method.
+- **Each linked worktree is its own workspace.** Group on `repo_key`, which
+  all checkouts of a repository share. `repo_root` sometimes has a trailing
+  slash and sometimes not.
 - **`agent.view.set` sorts the real sidebar.** It takes a sort list and a
   filter, and a sort field may be `{"token": "<name>"}`, matching a token that
   `pane.report-metadata` writes onto a pane. So the built-in agents panel *can*
@@ -144,8 +153,10 @@ that copy does the reading.
 Anything reaching outside the process sits behind a package variable that a
 test replaces: `herdr.run`, `agents.loadSnapshot`, `agents.indexTranscripts`,
 `agents.readTranscript`, `agents.resolveBranch`, `transcript.openTail`,
-`ui.collectRows`, `cli.loadConfig`, `cli.openPane`,
-`cli.collect`, `cli.loadMode`, `cli.saveMode`, `cli.focus`, `cli.newProgram`.
+`herdr.request`, `tree.collectAgents`, `tree.resolveBranch`,
+`ui.collectRows`, `ui.collectTree`, `cli.loadConfig`, `cli.openPane`,
+`cli.collect`, `cli.collectTree`, `cli.loadMode`, `cli.saveMode`, `cli.focus`,
+`cli.focusPane`, `cli.runTree`, `cli.newProgram`.
 
 Keep new outside calls behind the same pattern. `make cover` holds a 99% floor,
 and three statements are knowingly uncovered: `exec.Command`, `tea.NewProgram`

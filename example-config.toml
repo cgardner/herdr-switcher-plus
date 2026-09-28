@@ -29,6 +29,15 @@ height = "80%"
 
 [ui]
 
+# The view the open action starts in. --view on the command line, and the
+# open-list and open-tree actions, override it.
+#
+# BEGIN GENERATED: views
+#   list  every agent on its own row, in the chosen sort order
+#   tree  every pane, shells included, under its workspace and repository
+# END GENERATED: views
+view = "list"
+
 # Blank lines between agents.
 row_gap = 0
 

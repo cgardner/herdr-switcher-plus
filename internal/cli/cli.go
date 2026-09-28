@@ -15,6 +15,7 @@ import (
 	"github.com/cgardner/herdr-switcher-plus/internal/config"
 	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
 	"github.com/cgardner/herdr-switcher-plus/internal/state"
+	"github.com/cgardner/herdr-switcher-plus/internal/tree"
 	"github.com/cgardner/herdr-switcher-plus/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -22,11 +23,13 @@ import (
 // The effects Run performs, as package variables so tests can observe them
 // without a Herdr server or a terminal.
 var (
-	collect    = agents.Collect
-	loadConfig = defaultConfig
-	loadMode   = state.LoadMode
-	saveMode   = state.SaveMode
-	focus      = herdr.Focus
+	collect     = agents.Collect
+	collectTree = tree.Collect
+	loadConfig  = defaultConfig
+	loadMode    = state.LoadMode
+	saveMode    = state.SaveMode
+	focus       = herdr.Focus
+	focusPane   = herdr.FocusPane
 
 	// openPane shells out to Herdr to open the switcher's own pane. It is a
 	// variable so a test can read the arguments without a running server.
@@ -38,11 +41,12 @@ var (
 		return nil
 	}
 
-	runProgram = runTea
+	runProgram = runAs[ui.Model]
+	runTree    = runAs[ui.TreeModel]
 
 	// newProgram is the one line that needs a real terminal, kept separate so
 	// everything around it stays testable.
-	newProgram = func(m ui.Model) program { return tea.NewProgram(m, tea.WithAltScreen()) }
+	newProgram = func(m tea.Model) program { return tea.NewProgram(m, tea.WithAltScreen()) }
 )
 
 // program is the slice of tea.Program that this command uses.
@@ -50,15 +54,17 @@ type program interface {
 	Run() (tea.Model, error)
 }
 
-// runTea drives the Bubble Tea program and recovers the final model.
-func runTea(m ui.Model) (ui.Model, error) {
+// runAs drives the Bubble Tea program and recovers the final model as the
+// type it started as.
+func runAs[M tea.Model](m M) (M, error) {
+	var zero M
 	final, err := newProgram(m).Run()
 	if err != nil {
-		return ui.Model{}, err
+		return zero, err
 	}
-	out, ok := final.(ui.Model)
+	out, ok := final.(M)
 	if !ok {
-		return ui.Model{}, fmt.Errorf("unexpected model %T", final)
+		return zero, fmt.Errorf("unexpected model %T", final)
 	}
 	return out, nil
 }
@@ -76,6 +82,9 @@ func defaultConfig() (config.Config, error) { return config.Load(ui.KnownToken) 
 // action can ask that command for a different ordering.
 const modeEnv = "HERDR_SWITCHER_PLUS_MODE"
 
+// viewEnv carries a view from an action, for the same reason.
+const viewEnv = "HERDR_SWITCHER_PLUS_VIEW"
+
 // Run executes the command and returns a process exit status.
 func Run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("herdr-switcher-plus", flag.ContinueOnError)
@@ -85,9 +94,18 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	open := fs.Bool("open", false, "open the switcher in a Herdr pane, using the placement from the config")
 	sortFlag := fs.String("sort", "", "sort mode: "+modeNames()+" (default: the last mode used)")
 	statusFlag := fs.String("status", "", "show one state only: blocked, working, idle, done (or the picker keys b/w/i/d)")
+	viewFlag := fs.String("view", "", "view: "+strings.Join(config.ViewNames(), ", ")+" (default: the view in the config, else list)")
+	treeFlag := fs.Bool("tree", false, "the same as --view tree")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+
+	// The view named on the command line, which overrides every other source.
+	explicit := *viewFlag
+	if *treeFlag {
+		explicit = "tree"
+	}
+	explicit = checkView(explicit, "--view", stderr)
 
 	if *showVersion {
 		fmt.Fprintln(stdout, "herdr-switcher-plus", version)
@@ -107,13 +125,18 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	// Opening the pane happens before any agent is read: the pane that opens
-	// runs this same binary again, and that copy does the reading.
+	// runs this same binary again, and that copy does the reading. Only an
+	// explicit view travels, so a pane opened without one reads the config.
 	if *open {
-		if err := openPane(cfg.Pane.OpenArgs(*sortFlag)); err != nil {
+		if err := openPane(cfg.Pane.OpenArgs(*sortFlag, explicit)); err != nil {
 			fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
 			return 1
 		}
 		return 0
+	}
+
+	if resolveView(explicit, cfg.UI.View, stderr) == "tree" {
+		return runTreeView(*plain, status, stdout, stderr)
 	}
 
 	rows, err := collect()
@@ -145,6 +168,89 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// runTreeView is Run for the tree: print it, or show it and jump to the pane
+// the user picks. It keeps no sort mode, because the tree has one ordering.
+func runTreeView(plain bool, status agents.StatusFilter, stdout, stderr io.Writer) int {
+	roots, err := collectTree()
+	if err != nil {
+		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		return 1
+	}
+	if plain {
+		writeTree(stdout, tree.Filter(roots, status))
+		return 0
+	}
+
+	final, err := runTree(ui.NewTree(roots, status))
+	if err != nil {
+		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		return 1
+	}
+	if final.Chosen == nil {
+		return 0
+	}
+	// An agent pane goes through `agent focus`, the path the list uses. A
+	// shell has no agent to name, so it goes through the socket.
+	if r := final.Chosen.Agent; r != nil {
+		err = focus(r.Agent)
+	} else {
+		err = focusPane(final.Chosen.Pane)
+	}
+	if err != nil {
+		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		return 1
+	}
+	return 0
+}
+
+// writeTree prints the tree fully expanded, two columns of indent a level.
+func writeTree(w io.Writer, roots []*tree.Node) {
+	now := time.Now()
+	for _, l := range tree.Flatten(roots, nil) {
+		n, indent := l.Node, strings.Repeat("  ", l.Depth)
+		switch {
+		case n.IsGroup():
+			name := n.Name
+			if n.Linked {
+				name = "⑂ " + name
+			}
+			fmt.Fprintf(w, "%s%s\n", indent, name)
+		case n.Agent != nil:
+			r := n.Agent
+			fmt.Fprintf(w, "%s%4s  %-8s %-8s %s\n", indent, r.Age(now), n.Name, r.Agent.Status, trunc(r.Last.Text, 50))
+		default:
+			fmt.Fprintf(w, "%s%4s  %-8s %-8s %s\n", indent, "", n.Name, "", trunc(n.Pane.Title, 50))
+		}
+	}
+}
+
+// resolveView applies the precedence: the command line, then the environment
+// an action set, then the config, then the list. The first source that names a
+// view decides, and a name that is no view opens the list.
+func resolveView(explicit, configured string, stderr io.Writer) string {
+	if explicit != "" {
+		return explicit
+	}
+	if env := os.Getenv(viewEnv); env != "" {
+		return checkView(env, viewEnv, stderr)
+	}
+	if configured != "" {
+		return checkView(configured, "[ui] view", stderr)
+	}
+	return config.DefaultView
+}
+
+// checkView passes a valid view through, and turns a bad one into the list
+// with a warning. Falling back matches the sort mode and the status filter,
+// and the warning says why the view that was asked for did not open.
+func checkView(name, source string, stderr io.Writer) string {
+	if err := config.ValidateView(name); err != nil {
+		fmt.Fprintf(stderr, "herdr-switcher-plus: %s: %v, opening the %s\n", source, err, config.DefaultView)
+		return config.DefaultView
+	}
+	return name
 }
 
 // resolveMode applies the precedence: the flag, then the environment, then the

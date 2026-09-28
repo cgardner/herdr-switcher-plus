@@ -72,8 +72,9 @@ func (p Pane) Validate() error {
 //
 // Width and height are passed only when set, because Herdr applies the
 // manifest's own values otherwise, and a placement that is not a popup ignores
-// them entirely.
-func (p Pane) OpenArgs(mode string) []string {
+// them entirely. The mode and the view travel as environment variables,
+// because the pane entrypoint has one fixed command.
+func (p Pane) OpenArgs(mode, view string) []string {
 	args := []string{"plugin", "pane", "open", "--plugin", PluginID, "--entrypoint", Entrypoint, "--focus"}
 	if p.Placement != "" {
 		args = append(args, "--placement", p.Placement)
@@ -86,6 +87,9 @@ func (p Pane) OpenArgs(mode string) []string {
 	}
 	if mode != "" {
 		args = append(args, "--env", "HERDR_SWITCHER_PLUS_MODE="+mode)
+	}
+	if view != "" {
+		args = append(args, "--env", "HERDR_SWITCHER_PLUS_VIEW="+view)
 	}
 	return args
 }

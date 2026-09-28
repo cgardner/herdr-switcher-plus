@@ -177,3 +177,24 @@ func TestLoadRejectsABadSize(t *testing.T) {
 		t.Error("expected an error")
 	}
 }
+
+func TestLoadReadsTheView(t *testing.T) {
+	withConfig(t, "[ui]\nview = \"tree\"\n")
+	c, err := Load(known)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.UI.View != "tree" {
+		t.Errorf("got %q", c.UI.View)
+	}
+}
+
+// A bad view is not a load error. The caller warns and opens the list, so a
+// typo never stops the switcher from opening.
+func TestLoadKeepsABadView(t *testing.T) {
+	withConfig(t, "[ui]\nview = \"grid\"\n")
+	c, err := Load(known)
+	if err != nil || c.UI.View != "grid" {
+		t.Errorf("got %q, %v", c.UI.View, err)
+	}
+}
