@@ -32,11 +32,18 @@ first. `make help` lists the rest.
 ## Open it
 
 ```bash
-# opens in whichever mode you last used
+# opens in the view the config names, the list by default, in whichever
+# sort mode you last used
 herdr plugin action invoke cgardner.herdr-switcher-plus.open
+
+# opens the list, whatever the config names
+herdr plugin action invoke cgardner.herdr-switcher-plus.open-list
 
 # opens with blocked agents first
 herdr plugin action invoke cgardner.herdr-switcher-plus.open-attention
+
+# opens every pane as a tree of repository, workspace and pane
+herdr plugin action invoke cgardner.herdr-switcher-plus.open-tree
 ```
 
 Outside Herdr the binary also runs standalone:
@@ -90,6 +97,46 @@ not in the linked file.
 A sort change or a status change returns the cursor to the top, because the
 point of either is to see a different set. A refresh holds the cursor instead,
 so background activity never moves the row you are reading.
+
+## The tree view
+
+`--tree`, or the `open-tree` action, shows every pane rather than every agent.
+To make it the view that `open` starts in, set `view = "tree"` in `[ui]`. See
+[the configuration reference](docs/configuration.md#which-view-opens).
+The repository is at the root, each workspace that is a checkout of it is
+below, and the panes of that workspace are the leaves. A shell pane appears
+too, with its terminal title in place of a message.
+
+```text
+▾ platform
+  ▾ ⑂ auth-service
+     2m ● blocked claude  ‹ Two ways to expire the refresh token. Which do you want?
+  ▾ ⑂ billing
+     8m ● done    claude  ‹ Backfill finished. 41,882 invoices migrated, none rejected.
+        · shell    psql billing
+▸ web-client  @redesign-nav  ○ 45m  1 agent
+```
+
+Each level is ordered by the newest message below it. A repository with only
+one workspace does not get a level of its own. A closed group shows the status
+that most wants you, the newest age and the agent count.
+
+| key | action |
+|---|---|
+| `↑` `↓` `k` `j` | move |
+| `pgup` `pgdown` `home` `end` | move a page, or to either end |
+| `←` `h` | close the group, or climb to the parent |
+| `→` `l` | open the group |
+| `space` | open or close the group |
+| `enter` | focus that pane, or open or close the group |
+| `e` `c` | open or close every group |
+| `a` `b` `w` `i` `d` | show all, blocked, working, idle or done |
+| `r` | refresh, holding the cursor in place |
+| `q` `esc` | close |
+
+A status filter opens every group, so that a match is never folded out of
+sight. A tree longer than the pane turns whole pages, and the dots under it
+show which page is on screen, as in the list. `herdr-switcher-plus --tree --list` prints the tree as plain text.
 
 ## Sort modes
 

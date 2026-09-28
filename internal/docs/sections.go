@@ -24,10 +24,12 @@ func Targets() map[string][]Section {
 		filepath.Join("docs", "configuration.md"): {
 			{Name: "tokens", Body: TokenTable()},
 			{Name: "placements", Body: PlacementTable()},
+			{Name: "views", Body: ViewTable()},
 		},
 		"example-config.toml": {
 			{Name: "tokens", Body: Comment(TokenList())},
 			{Name: "placements", Body: Comment(PlacementList())},
+			{Name: "views", Body: Comment(ViewList())},
 		},
 		"AGENTS.md": {
 			{Name: "token-count", Body: TokenCount()},
@@ -84,24 +86,38 @@ func TokenList() string {
 
 // PlacementTable renders the pane placements Herdr offers.
 func PlacementTable() string {
-	rows := make([][]string, 0, len(config.Placements))
-	for _, name := range config.PlacementNames() {
-		rows = append(rows, []string{"`" + name + "`", config.Placements[name]})
-	}
-	return Table([]string{"placement", "what it opens"}, rows)
+	return namedTable("placement", "what it opens", config.PlacementNames(), config.Placements)
 }
 
 // PlacementList is the plain form for a TOML comment.
-func PlacementList() string {
+func PlacementList() string { return namedList(config.PlacementNames(), config.Placements) }
+
+// ViewTable renders the views the switcher can open in.
+func ViewTable() string {
+	return namedTable("view", "what it shows", config.ViewNames(), config.Views)
+}
+
+// ViewList is the plain form for a TOML comment.
+func ViewList() string { return namedList(config.ViewNames(), config.Views) }
+
+// namedTable renders a registry of names and descriptions, in the order given.
+func namedTable(name, desc string, names []string, descs map[string]string) string {
+	rows := make([][]string, 0, len(names))
+	for _, n := range names {
+		rows = append(rows, []string{"`" + n + "`", descs[n]})
+	}
+	return Table([]string{name, desc}, rows)
+}
+
+// namedList is namedTable as aligned plain text.
+func namedList(names []string, descs map[string]string) string {
 	var b strings.Builder
 	width := 0
-	for _, name := range config.PlacementNames() {
-		if len(name) > width {
-			width = len(name)
-		}
+	for _, n := range names {
+		width = max(width, len(n))
 	}
-	for _, name := range config.PlacementNames() {
-		fmt.Fprintf(&b, "  %-*s  %s\n", width, name, config.Placements[name])
+	for _, n := range names {
+		fmt.Fprintf(&b, "  %-*s  %s\n", width, n, descs[n])
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

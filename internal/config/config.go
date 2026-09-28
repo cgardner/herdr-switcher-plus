@@ -22,6 +22,11 @@ const FileName = "config.toml"
 type Config struct {
 	UI struct {
 		layout.Spec
+
+		// View is the view the switcher opens in, when neither a flag nor
+		// an action names one. Load does not reject a bad name: the caller
+		// warns and opens the list, as a bad sort mode opens recency.
+		View string `toml:"view"`
 	} `toml:"ui"`
 
 	// Pane is how the switcher opens its own pane. Herdr fixes a manifest

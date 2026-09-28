@@ -16,6 +16,13 @@ FIXTURE = sys.argv[1]
 HOME = os.path.join(FIXTURE, "home")
 CHECKOUTS = os.path.join(FIXTURE, "checkouts")
 
+# Shell panes beside the agents, for the tree view: (space, title).
+SHELLS = [
+    ("api-gateway", "go test ./... -run RateLimit"),
+    ("billing", "psql billing"),
+    ("web-client", "npm run dev"),
+]
+
 # (space, repo, linked, branch, minutes ago, status, role, message)
 SESSIONS = [
     ("api-gateway", "api-gateway", False, "main", 0.2, "working", "assistant",
@@ -37,7 +44,7 @@ SESSIONS = [
 ]
 
 now = time.time()
-agents, workspaces = [], []
+agents, workspaces, shells = [], [], []
 
 for i, (space, repo, linked, branch, mins, status, role, text) in enumerate(SESSIONS):
     ws_id = "w%d" % (i + 1)
@@ -54,6 +61,9 @@ for i, (space, repo, linked, branch, mins, status, role, text) in enumerate(SESS
             "workspace_id": ws_id, "label": space, "number": i + 1,
             "worktree": {
                 "repo_name": repo, "repo_root": checkout,
+                # Every checkout of one repository shares its git directory,
+                # which is what the tree groups on.
+                "repo_key": os.path.join(CHECKOUTS, "_git", repo),
                 "checkout_path": checkout, "is_linked_worktree": bool(linked),
             },
         })
@@ -69,6 +79,14 @@ for i, (space, repo, linked, branch, mins, status, role, text) in enumerate(SESS
         "state_change_seq": 100 - i,
         "agent_session": {"kind": "id", "value": session_id},
     })
+
+    for n, (shell_space, title) in enumerate(SHELLS):
+        if shell_space == space:
+            shells.append({
+                "agent_status": "unknown", "cwd": checkout,
+                "pane_id": "%s:p%d" % (ws_id, n + 2), "tab_id": "%s:t2" % ws_id,
+                "workspace_id": ws_id, "terminal_title_stripped": title,
+            })
 
     # The transcript the age and the preview come from.
     project = os.path.join(HOME, ".claude", "projects", checkout.replace("/", "-"))
@@ -88,5 +106,5 @@ os.makedirs(os.path.join(FIXTURE, "state"), exist_ok=True)
 with open(os.path.join(FIXTURE, "snapshot.json"), "w") as f:
     json.dump({"id": "demo", "result": {"snapshot": {
         "agents": agents, "workspaces": workspaces, "tabs": [],
-        "panes": agents, "focused_pane_id": "w1:p1",
+        "panes": agents + shells, "focused_pane_id": "w1:p1",
     }}}, f)

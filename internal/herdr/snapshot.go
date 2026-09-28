@@ -6,10 +6,14 @@
 package herdr
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"time"
 )
 
 // run executes a Herdr CLI command and returns its stdout. It is a package
@@ -58,8 +62,13 @@ type Agent struct {
 //
 // Herdr reports no branch here. Resolving one means reading the checkout, which
 // internal/gitref does.
+//
+// RepoKey is the repository's git directory, which every checkout of one
+// repository shares. RepoRoot is not a safe key: Herdr reports it with a
+// trailing slash for some checkouts and without one for others.
 type Worktree struct {
 	RepoName     string `json:"repo_name"`
+	RepoKey      string `json:"repo_key"`
 	RepoRoot     string `json:"repo_root"`
 	CheckoutPath string `json:"checkout_path"`
 	IsLinked     bool   `json:"is_linked_worktree"`
@@ -73,9 +82,24 @@ type Workspace struct {
 	Worktree    *Worktree `json:"worktree"`
 }
 
+// Pane is one terminal pane, whether or not an agent runs in it. Agent is
+// empty for a plain shell, and Status is then "unknown".
+type Pane struct {
+	PaneID        string `json:"pane_id"`
+	TabID         string `json:"tab_id"`
+	WorkspaceID   string `json:"workspace_id"`
+	Agent         string `json:"agent"`
+	Status        string `json:"agent_status"`
+	Cwd           string `json:"cwd"`
+	ForegroundCwd string `json:"foreground_cwd"`
+	Title         string `json:"terminal_title_stripped"`
+	Focused       bool   `json:"focused"`
+}
+
 // Snapshot is the subset of session.snapshot this plugin reads.
 type Snapshot struct {
 	Agents        []Agent     `json:"agents"`
+	Panes         []Pane      `json:"panes"`
 	Workspaces    []Workspace `json:"workspaces"`
 	FocusedPaneID string      `json:"focused_pane_id"`
 }
@@ -138,6 +162,75 @@ func Focus(a Agent) error {
 	_, _ = run(bin, "tab", "focus", a.TabID)
 	if _, err := run(bin, "agent", "focus", a.PaneID); err != nil {
 		return fmt.Errorf("herdr agent focus %s: %w", a.PaneID, err)
+	}
+	return nil
+}
+
+// FocusPane moves the user to any pane, including one that runs no agent.
+//
+// `agent focus` rejects a plain shell with agent_not_found, and the CLI has
+// no command that focuses a pane by ID. The pane.focus socket method does, so
+// the last step goes over the socket. Workspace and tab focus run first for
+// the same reason as in Focus.
+func FocusPane(p Pane) error {
+	bin := Bin()
+	_, _ = run(bin, "workspace", "focus", p.WorkspaceID)
+	_, _ = run(bin, "tab", "focus", p.TabID)
+	if err := request("pane.focus", map[string]string{"pane_id": p.PaneID}); err != nil {
+		return fmt.Errorf("herdr pane.focus %s: %w", p.PaneID, err)
+	}
+	return nil
+}
+
+// request sends one call over the Herdr socket. It is a package variable so
+// tests can observe the call without a live server.
+var request = socketRequest
+
+// SocketPath resolves the Herdr socket. Herdr injects HERDR_SOCKET_PATH into
+// every pane it starts, and the default covers a pane that lost it.
+func SocketPath() string {
+	if p := os.Getenv("HERDR_SOCKET_PATH"); p != "" {
+		return p
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "herdr", "herdr.sock")
+}
+
+// socketTimeout bounds a socket call, so a server that stops answering cannot
+// hold the switcher open after the user picked a pane.
+const socketTimeout = 2 * time.Second
+
+// socketRequest writes one JSON request and reads one reply. The protocol is
+// newline-delimited JSON: a request carries an id, a method and params, and
+// the reply carries either a result or an error with a code and a message.
+func socketRequest(method string, params map[string]string) error {
+	conn, err := net.DialTimeout("unix", SocketPath(), socketTimeout)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(socketTimeout))
+
+	// Marshal cannot fail on strings alone.
+	req, _ := json.Marshal(map[string]any{"id": "herdr-switcher-plus", "method": method, "params": params})
+	// A failed write needs no check of its own: the read that follows fails
+	// too, and reports it.
+	_, _ = conn.Write(append(req, '\n'))
+	line, err := bufio.NewReader(conn).ReadBytes('\n')
+	if err != nil {
+		return err
+	}
+	var reply struct {
+		Error *struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(line, &reply); err != nil {
+		return fmt.Errorf("parse reply: %w", err)
+	}
+	if reply.Error != nil {
+		return fmt.Errorf("%s: %s", reply.Error.Code, reply.Error.Message)
 	}
 	return nil
 }

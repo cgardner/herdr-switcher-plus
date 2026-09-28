@@ -14,6 +14,7 @@ import (
 	"github.com/cgardner/herdr-switcher-plus/internal/herdr"
 	"github.com/cgardner/herdr-switcher-plus/internal/layout"
 	"github.com/cgardner/herdr-switcher-plus/internal/transcript"
+	"github.com/cgardner/herdr-switcher-plus/internal/tree"
 	"github.com/cgardner/herdr-switcher-plus/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -256,14 +257,14 @@ func (f fakeProgram) Run() (tea.Model, error) { return f.model, f.err }
 func stubProgram(t *testing.T, p program) {
 	t.Helper()
 	prev := newProgram
-	newProgram = func(ui.Model) program { return p }
+	newProgram = func(tea.Model) program { return p }
 	t.Cleanup(func() { newProgram = prev })
 }
 
 func TestRunTeaReturnsTheFinalModel(t *testing.T) {
 	want := ui.New(fixture(), agents.ModeOldest, agents.StatusAll, ui.DefaultSpec)
 	stubProgram(t, fakeProgram{model: want})
-	got, err := runTea(ui.Model{})
+	got, err := runAs(ui.Model{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +275,7 @@ func TestRunTeaReturnsTheFinalModel(t *testing.T) {
 
 func TestRunTeaPropagatesAProgramError(t *testing.T) {
 	stubProgram(t, fakeProgram{err: errors.New("no tty")})
-	if _, err := runTea(ui.Model{}); err == nil || !strings.Contains(err.Error(), "no tty") {
+	if _, err := runAs(ui.Model{}); err == nil || !strings.Contains(err.Error(), "no tty") {
 		t.Errorf("got %v", err)
 	}
 }
@@ -283,7 +284,7 @@ func TestRunTeaPropagatesAProgramError(t *testing.T) {
 // to be reported rather than panicking on the type assertion.
 func TestRunTeaRejectsAForeignModel(t *testing.T) {
 	stubProgram(t, fakeProgram{model: otherModel{}})
-	_, err := runTea(ui.Model{})
+	_, err := runAs(ui.Model{})
 	if err == nil || !strings.Contains(err.Error(), "unexpected model") {
 		t.Errorf("got %v", err)
 	}
@@ -457,5 +458,247 @@ func TestOpenStopsOnABadConfig(t *testing.T) {
 	}
 	if code, _, errOut := run("--open"); code != 1 || !strings.Contains(errOut, "floating") {
 		t.Errorf("code=%d stderr=%q", code, errOut)
+	}
+}
+
+// treeHarness replaces the effects of the tree view and records what happened.
+type treeHarness struct {
+	focused     *herdr.Agent
+	focusedPane *herdr.Pane
+	seen        ui.TreeModel
+	ran         bool
+	chosen      *tree.Node
+	runErr      error
+	focusErr    error
+}
+
+func treeRoots() []*tree.Node {
+	snap := &herdr.Snapshot{
+		Workspaces: []herdr.Workspace{
+			{WorkspaceID: "w1", Label: "auth-service", Worktree: &herdr.Worktree{RepoName: "platform", RepoKey: "k", IsLinked: true}},
+			{WorkspaceID: "w2", Label: "billing", Worktree: &herdr.Worktree{RepoName: "platform", RepoKey: "k", IsLinked: true}},
+		},
+		Panes: []herdr.Pane{
+			{PaneID: "w1:p1", WorkspaceID: "w1", Agent: "claude"},
+			{PaneID: "w2:p1", WorkspaceID: "w2", Agent: "claude"},
+			{PaneID: "w2:p2", WorkspaceID: "w2", Title: "psql billing"},
+		},
+	}
+	rows := []agents.Row{row("w1:p1", "auth-service", "blocked", time.Minute), row("w2:p1", "billing", "done", time.Hour)}
+	return tree.Build(snap, rows, func(string) string { return "" })
+}
+
+func setupTree(t *testing.T, collectErr error) *treeHarness {
+	t.Helper()
+	setup(t, nil, errors.New("the list must not collect"))
+	h := &treeHarness{}
+	ct, fp, rt := collectTree, focusPane, runTree
+	collectTree = func() ([]*tree.Node, error) { return treeRoots(), collectErr }
+	focus = func(a herdr.Agent) error { h.focused = &a; return h.focusErr }
+	focusPane = func(p herdr.Pane) error { h.focusedPane = &p; return h.focusErr }
+	runTree = func(m ui.TreeModel) (ui.TreeModel, error) {
+		h.ran, h.seen = true, m
+		m.Chosen = h.chosen
+		return m, h.runErr
+	}
+	t.Setenv(viewEnv, "")
+	t.Cleanup(func() { collectTree, focusPane, runTree = ct, fp, rt })
+	return h
+}
+
+func TestTreeListPrintsEveryLevel(t *testing.T) {
+	setupTree(t, nil)
+	code, out, _ := run("--tree", "--list")
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	for _, want := range []string{"platform\n", "  ⑂ auth-service\n", "blocked", "shell", "psql billing"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("%q missing from\n%s", want, out)
+		}
+	}
+}
+
+func TestTreeListHonoursTheStatusFlag(t *testing.T) {
+	setupTree(t, nil)
+	_, out, _ := run("--tree", "--list", "--status", "done")
+	if strings.Contains(out, "auth-service") || !strings.Contains(out, "billing") {
+		t.Errorf("got\n%s", out)
+	}
+}
+
+func TestTheViewEnvironmentSelectsTheTree(t *testing.T) {
+	h := setupTree(t, nil)
+	t.Setenv(viewEnv, "tree")
+	if code, _, errOut := run(); code != 0 || !h.ran {
+		t.Errorf("exit %d, ran %v, stderr %q", code, h.ran, errOut)
+	}
+}
+
+func TestTreeCollectFailureExitsOne(t *testing.T) {
+	setupTree(t, errors.New("no server"))
+	if code, _, errOut := run("--tree"); code != 1 || !strings.Contains(errOut, "no server") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+}
+
+func TestTreeProgramFailureExitsOne(t *testing.T) {
+	h := setupTree(t, nil)
+	h.runErr = errors.New("no tty")
+	if code, _, errOut := run("--tree"); code != 1 || !strings.Contains(errOut, "no tty") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+}
+
+func TestTreeWithNoChoiceFocusesNothing(t *testing.T) {
+	h := setupTree(t, nil)
+	if code, _, _ := run("--tree"); code != 0 || h.focused != nil || h.focusedPane != nil {
+		t.Errorf("exit %d, focused %v %v", code, h.focused, h.focusedPane)
+	}
+}
+
+// An agent pane goes through `agent focus`, the path the list proved.
+func TestChoosingAnAgentPaneFocusesTheAgent(t *testing.T) {
+	h := setupTree(t, nil)
+	h.chosen = treeRoots()[0].Children[0].Children[0]
+	if code, _, _ := run("--tree"); code != 0 || h.focused == nil || h.focused.PaneID != "w1:p1" {
+		t.Errorf("exit %d, focused %+v", code, h.focused)
+	}
+}
+
+func TestChoosingAShellFocusesThePane(t *testing.T) {
+	h := setupTree(t, nil)
+	h.chosen = &tree.Node{Kind: tree.KindPane, Pane: herdr.Pane{PaneID: "w2:p2"}}
+	if code, _, _ := run("--tree"); code != 0 || h.focusedPane == nil || h.focusedPane.PaneID != "w2:p2" {
+		t.Errorf("exit %d, focused %+v", code, h.focusedPane)
+	}
+}
+
+func TestTreeFocusFailureExitsOne(t *testing.T) {
+	h := setupTree(t, nil)
+	h.chosen = &tree.Node{Kind: tree.KindPane, Pane: herdr.Pane{PaneID: "w2:p2"}}
+	h.focusErr = errors.New("pane closed")
+	if code, _, errOut := run("--tree"); code != 1 || !strings.Contains(errOut, "pane closed") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+}
+
+func TestOpenPassesTheTreeView(t *testing.T) {
+	setupTree(t, nil)
+	calls := stubOpen(t)
+	if code, _, _ := run("--open", "--tree"); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if got := strings.Join((*calls)[0], " "); !strings.Contains(got, "HERDR_SWITCHER_PLUS_VIEW=tree") {
+		t.Errorf("view not passed: %q", got)
+	}
+}
+
+func TestRunAsRecoversATreeModel(t *testing.T) {
+	stubProgram(t, fakeProgram{model: ui.NewTree(nil, agents.StatusDone)})
+	if _, err := runAs(ui.TreeModel{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// configView makes the loaded config name a view.
+func configView(view string) {
+	loadConfig = func() (config.Config, error) {
+		var c config.Config
+		c.UI.View = view
+		return c, nil
+	}
+}
+
+func TestTheConfigCanChooseTheTree(t *testing.T) {
+	h := setupTree(t, nil)
+	configView("tree")
+	if code, _, errOut := run(); code != 0 || !h.ran {
+		t.Errorf("exit %d, ran %v, stderr %q", code, h.ran, errOut)
+	}
+}
+
+func TestTheViewFlagOverridesTheConfig(t *testing.T) {
+	h := setupTree(t, nil)
+	configView("tree")
+	collect = func() ([]agents.Row, error) { return fixture(), nil }
+	if code, out, _ := run("--view", "list", "--list"); code != 0 || h.ran || !strings.Contains(out, "alpha") {
+		t.Errorf("exit %d, tree ran %v, out %q", code, h.ran, out)
+	}
+}
+
+func TestTheViewEnvironmentOverridesTheConfig(t *testing.T) {
+	h := setupTree(t, nil)
+	configView("tree")
+	collect = func() ([]agents.Row, error) { return fixture(), nil }
+	t.Setenv(viewEnv, "list")
+	if code, _, _ := run("--list"); code != 0 || h.ran {
+		t.Errorf("exit %d, tree ran %v", code, h.ran)
+	}
+}
+
+// Every source that names a bad view opens the list, with a warning that
+// names the source.
+func TestABadViewOpensTheListWithAWarning(t *testing.T) {
+	cases := []struct {
+		name, flag, env, config, source string
+	}{
+		{"flag", "grid", "", "tree", "--view"},
+		{"environment", "", "grid", "tree", viewEnv},
+		{"config", "", "", "grid", "[ui] view"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := setupTree(t, nil)
+			configView(c.config)
+			collect = func() ([]agents.Row, error) { return fixture(), nil }
+			t.Setenv(viewEnv, c.env)
+			args := []string{"--list"}
+			if c.flag != "" {
+				args = append(args, "--view", c.flag)
+			}
+			code, out, errOut := run(args...)
+			if code != 0 || h.ran || !strings.Contains(out, "alpha") {
+				t.Errorf("exit %d, tree ran %v, out %q", code, h.ran, out)
+			}
+			for _, want := range []string{c.source, "grid", "opening the list"} {
+				if !strings.Contains(errOut, want) {
+					t.Errorf("warning should mention %q: %q", want, errOut)
+				}
+			}
+		})
+	}
+}
+
+// --open passes the list on, so the pane it opens does not repeat the warning
+// or fall back to the config.
+func TestOpenWithABadViewPassesTheList(t *testing.T) {
+	setupTree(t, nil)
+	calls := stubOpen(t)
+	configView("tree")
+	run("--open", "--view", "grid")
+	if got := strings.Join((*calls)[0], " "); !strings.Contains(got, "HERDR_SWITCHER_PLUS_VIEW=list") {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestOpenPassesAnExplicitList(t *testing.T) {
+	setupTree(t, nil)
+	calls := stubOpen(t)
+	configView("tree")
+	run("--open", "--view", "list")
+	if got := strings.Join((*calls)[0], " "); !strings.Contains(got, "HERDR_SWITCHER_PLUS_VIEW=list") {
+		t.Errorf("view not passed: %q", got)
+	}
+}
+
+// Without an explicit view, the opened pane reads the config itself.
+func TestOpenWithoutAViewPassesNone(t *testing.T) {
+	setupTree(t, nil)
+	calls := stubOpen(t)
+	configView("tree")
+	run("--open")
+	if got := strings.Join((*calls)[0], " "); strings.Contains(got, "HERDR_SWITCHER_PLUS_VIEW") {
+		t.Errorf("no view should travel: %q", got)
 	}
 }

@@ -48,9 +48,17 @@ var (
 // first. Callers reorder with Apply rather than calling Collect again, so
 // changing sort mode never re-reads a transcript.
 func Collect() ([]Row, error) {
+	_, rows, err := CollectSnapshot()
+	return rows, err
+}
+
+// CollectSnapshot is Collect that also returns the snapshot the rows came
+// from. The tree needs the panes and workspaces that run no agent, and reading
+// the snapshot a second time could disagree with the first.
+func CollectSnapshot() (*herdr.Snapshot, []Row, error) {
 	snap, err := loadSnapshot()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	idx := indexTranscripts()
 
@@ -69,7 +77,7 @@ func Collect() ([]Row, error) {
 		rows = append(rows, r)
 	}
 	Sort(rows)
-	return rows, nil
+	return snap, rows, nil
 }
 
 // Sort orders rows by newest message first. Rows with no transcript fall to

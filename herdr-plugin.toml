@@ -32,15 +32,29 @@ command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\""]
 id = "open"
 title = "switcher+: agents by last message"
 contexts = ["global", "workspace", "pane"]
-description = "Open the agent picker, newest message first."
+description = "Open the switcher in the view the config names, the list by default."
 command = [
   "sh",
   "-c",
   "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\" --open",
 ]
 
+# The list, whatever view the config names.
+[[actions]]
+id = "open-list"
+title = "switcher+: agents as a list"
+contexts = ["global", "workspace", "pane"]
+description = "Open the switcher as a list of agents, newest message first."
+command = [
+  "sh",
+  "-c",
+  "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\" --open --view list",
+]
+
 # A triage entry point. The pane entrypoint has one fixed command, so the
 # starting sort travels as an environment variable rather than an argument.
+# The attention sort belongs to the list, so this opens the list whatever view
+# the config names.
 [[actions]]
 id = "open-attention"
 title = "switcher+: agents that need attention"
@@ -49,5 +63,19 @@ description = "Open the switcher with blocked agents first."
 command = [
   "sh",
   "-c",
-  "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\" --open --sort attention",
+  "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\" --open --view list --sort attention",
+]
+
+# The tree view: repository, then workspace, then every pane, shells included.
+# It opens the tree whatever view the config names. The view travels as an
+# environment variable for the same reason the sort does.
+[[actions]]
+id = "open-tree"
+title = "switcher+: every pane as a tree"
+contexts = ["global", "workspace", "pane"]
+description = "Open the switcher as a tree of repository, workspace and pane."
+command = [
+  "sh",
+  "-c",
+  "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-switcher-plus\" --open --view tree",
 ]

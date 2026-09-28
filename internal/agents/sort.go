@@ -75,13 +75,13 @@ func (m Mode) Next(step int) Mode {
 	return ModeRecent
 }
 
-// attentionRank orders states by how much they want the user.
+// AttentionRank orders states by how much they want the user.
 //
 // blocked waits on an answer, so nothing outranks it. done is finished work
 // nobody has looked at. idle is ready for the next instruction. working needs
 // no one. unknown means Herdr could not classify the pane, which proves
 // nothing, so it sits last.
-func attentionRank(status string) int {
+func AttentionRank(status string) int {
 	switch status {
 	case "blocked":
 		return 0
@@ -96,9 +96,9 @@ func attentionRank(status string) int {
 	}
 }
 
-// newer reports whether i carries a more recent message than j. A row with no
+// Newer reports whether i carries a more recent message than j. A row with no
 // transcript has no wall-clock age and never outranks one that has.
-func newer(i, j Row) bool {
+func Newer(i, j Row) bool {
 	if i.HasLast != j.HasLast {
 		return i.HasLast
 	}
@@ -113,7 +113,7 @@ func Apply(mode Mode, rows []Row) {
 	switch mode {
 	case ModeAttention:
 		sortBy(rows, func(a, b Row) (bool, bool) {
-			ra, rb := attentionRank(a.Agent.Status), attentionRank(b.Agent.Status)
+			ra, rb := AttentionRank(a.Agent.Status), AttentionRank(b.Agent.Status)
 			return ra < rb, ra == rb
 		})
 	case ModeSpace:
@@ -151,7 +151,7 @@ func sortBy(rows []Row, primary func(a, b Row) (less bool, equal bool)) {
 		if !equal {
 			return less
 		}
-		return newer(rows[i], rows[j])
+		return Newer(rows[i], rows[j])
 	})
 }
 

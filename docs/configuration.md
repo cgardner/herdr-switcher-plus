@@ -83,6 +83,33 @@ A popup centres on the pane area rather than the whole window, so it sits
 off-centre when the sidebar is expanded. Herdr offers no anchor or position
 parameter, so choosing another placement is the only control available.
 
+## Which view opens
+
+`view` in `[ui]` chooses the view the `open` action and a bare
+`herdr-switcher-plus` start in.
+
+```toml
+[ui]
+view = "tree"
+```
+
+<!-- BEGIN GENERATED: views -->
+| view | what it shows |
+|---|---|
+| `list` | every agent on its own row, in the chosen sort order |
+| `tree` | every pane, shells included, under its workspace and repository |
+<!-- END GENERATED: views -->
+
+The command line wins over the config: `--view list`, `--view tree`, or
+`--tree` for short. The `open-list` and `open-tree` actions pass one of those,
+so each view stays one action away whatever the config says. `open-attention`
+opens the list, because the attention sort belongs to the list.
+
+A value that names no view opens the list, with a warning on stderr that names
+where the value came from. The same rule applies to `--view` and to the
+environment an action sets. A typo therefore never stops the switcher from
+opening, the same as a bad sort mode.
+
 ## Styles
 
 A token table accepts `fg`, `bold` and `dim`.

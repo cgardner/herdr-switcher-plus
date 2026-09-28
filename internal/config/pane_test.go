@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func args(p Pane, mode string) string { return strings.Join(p.OpenArgs(mode), " ") }
+func args(p Pane, mode string) string { return strings.Join(p.OpenArgs(mode, ""), " ") }
 
 // With nothing configured the arguments carry no placement or size, so Herdr
 // applies the manifest's own values and today's behaviour is unchanged.
@@ -92,5 +92,12 @@ func TestPlacementsAreDescribed(t *testing.T) {
 	}
 	if len(PlacementNames()) != len(Placements) {
 		t.Error("PlacementNames must list every placement")
+	}
+}
+
+func TestOpenArgsCarriesTheView(t *testing.T) {
+	got := strings.Join(Pane{}.OpenArgs("", "tree"), " ")
+	if !strings.HasSuffix(got, "--env HERDR_SWITCHER_PLUS_VIEW=tree") {
+		t.Errorf("got %q", got)
 	}
 }
