@@ -107,15 +107,7 @@ The repository is at the root, each workspace that is a checkout of it is
 below, and the panes of that workspace are the leaves. A shell pane appears
 too, with its terminal title in place of a message.
 
-```text
-▾ platform
-  ▾ ⑂ auth-service
-     2m ● blocked claude  ‹ Two ways to expire the refresh token. Which do you want?
-  ▾ ⑂ billing
-     8m ● done    claude  ‹ Backfill finished. 41,882 invoices migrated, none rejected.
-        · shell    psql billing
-▸ web-client  @redesign-nav  ○ 45m  1 agent
-```
+![The tree view, showing fabricated sessions](docs/images/tree.png)
 
 Each level is ordered by the newest message below it. A repository with only
 one workspace does not get a level of its own. A closed group shows the status
