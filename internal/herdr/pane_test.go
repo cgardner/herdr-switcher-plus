@@ -166,3 +166,13 @@ func TestSocketRequestReportsNoServer(t *testing.T) {
 		t.Error("expected an error")
 	}
 }
+
+func TestNotifyShowsATitleAndBody(t *testing.T) {
+	t.Setenv("HERDR_BIN_PATH", "herdr")
+	calls := stub(t, func(string, ...string) ([]byte, error) { return nil, errors.New("dropped") })
+	Notify("switcher+", "Another popup is already open.")
+	want := "herdr notification show switcher+ --body Another popup is already open."
+	if len(*calls) != 1 || strings.Join((*calls)[0], " ") != want {
+		t.Errorf("calls = %v", *calls)
+	}
+}

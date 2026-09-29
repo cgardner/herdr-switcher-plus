@@ -32,7 +32,23 @@ is up returns:
 {"error":{"code":"ui_busy","message":"a popup pane is already open"}}
 ```
 
-Close the open one and try again.
+Close the open one and try again. The popup in the way can be open in another
+Herdr client, where you cannot see it.
+
+The switcher shows a Herdr notification that says another popup is open. It
+does the same for any other failure while it opens: a bad config, a snapshot
+it cannot read, or a jump that fails. The pane closes as soon as the switcher
+exits, and an action's output reaches only the plugin log, so without the
+notice the failure would pass in silence. A `view` that names no view gets a
+notice too, and the list opens.
+
+Every action run is in the plugin log, with its exit code and stderr:
+
+```bash
+herdr plugin log list | jq '.result.logs[] | select(.plugin_id == "cgardner.herdr-switcher-plus") | select(.status == "failed")'
+```
+
+`--list` shows no notice, because it runs at a shell where stderr is seen.
 
 ## An agent shows `—` for its age, and sorts last
 
