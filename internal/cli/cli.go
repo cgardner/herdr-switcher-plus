@@ -30,6 +30,7 @@ var (
 	saveMode    = state.SaveMode
 	focus       = herdr.Focus
 	focusPane   = herdr.FocusPane
+	notify      = herdr.Notify
 
 	// openPane shells out to Herdr to open the switcher's own pane. It is a
 	// variable so a test can read the arguments without a running server.
@@ -85,6 +86,39 @@ const modeEnv = "HERDR_SWITCHER_PLUS_MODE"
 // viewEnv carries a view from an action, for the same reason.
 const viewEnv = "HERDR_SWITCHER_PLUS_VIEW"
 
+// reporter prints a problem to stderr, and raises it as a Herdr notification
+// when nobody reads stderr. That covers every run except --list: an action's
+// output reaches only the plugin log, and the switcher's own pane closes as
+// soon as it exits.
+type reporter struct {
+	w      io.Writer
+	notify bool
+}
+
+func (r reporter) fail(err error) {
+	fmt.Fprintln(r.w, "herdr-switcher-plus:", err)
+	if r.notify {
+		notify("switcher+ could not open", describe(err))
+	}
+}
+
+func (r reporter) warn(msg string) {
+	fmt.Fprintln(r.w, "herdr-switcher-plus:", msg)
+	if r.notify {
+		notify("switcher+", msg)
+	}
+}
+
+// describe turns an error into a notice. ui_busy gets words of its own,
+// because the raw reply names no popup and suggests no action, and the popup
+// in the way is often open in another client where it cannot be seen.
+func describe(err error) string {
+	if strings.Contains(err.Error(), "ui_busy") {
+		return "Another popup is already open, possibly in another Herdr client. Close it, then try again."
+	}
+	return err.Error()
+}
+
 // Run executes the command and returns a process exit status.
 func Run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("herdr-switcher-plus", flag.ContinueOnError)
@@ -105,7 +139,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if *treeFlag {
 		explicit = "tree"
 	}
-	explicit = checkView(explicit, "--view", stderr)
+	report := reporter{w: stderr, notify: !*plain}
+	explicit = checkView(explicit, "--view", report)
 
 	if *showVersion {
 		fmt.Fprintln(stdout, "herdr-switcher-plus", version)
@@ -120,7 +155,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	// pane with no idea why their file did nothing.
 	cfg, err := loadConfig()
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		report.fail(err)
 		return 1
 	}
 
@@ -129,19 +164,19 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	// explicit view travels, so a pane opened without one reads the config.
 	if *open {
 		if err := openPane(cfg.Pane.OpenArgs(*sortFlag, explicit)); err != nil {
-			fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+			report.fail(err)
 			return 1
 		}
 		return 0
 	}
 
-	if resolveView(explicit, cfg.UI.View, stderr) == "tree" {
-		return runTreeView(*plain, status, stdout, stderr)
+	if resolveView(explicit, cfg.UI.View, report) == "tree" {
+		return runTreeView(*plain, status, stdout, report)
 	}
 
 	rows, err := collect()
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		report.fail(err)
 		return 1
 	}
 	agents.Apply(mode, rows)
@@ -153,7 +188,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 	final, err := runProgram(ui.New(rows, mode, status, cfg.UI.Spec))
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		report.fail(err)
 		return 1
 	}
 	saveMode(string(final.Mode))
@@ -164,7 +199,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if err := focus(final.Chosen.Agent); err != nil {
-		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		report.fail(err)
 		return 1
 	}
 	return 0
@@ -172,10 +207,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 // runTreeView is Run for the tree: print it, or show it and jump to the pane
 // the user picks. It keeps no sort mode, because the tree has one ordering.
-func runTreeView(plain bool, status agents.StatusFilter, stdout, stderr io.Writer) int {
+func runTreeView(plain bool, status agents.StatusFilter, stdout io.Writer, report reporter) int {
 	roots, err := collectTree()
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		report.fail(err)
 		return 1
 	}
 	if plain {
@@ -185,7 +220,7 @@ func runTreeView(plain bool, status agents.StatusFilter, stdout, stderr io.Write
 
 	final, err := runTree(ui.NewTree(roots, status))
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		report.fail(err)
 		return 1
 	}
 	if final.Chosen == nil {
@@ -199,7 +234,7 @@ func runTreeView(plain bool, status agents.StatusFilter, stdout, stderr io.Write
 		err = focusPane(final.Chosen.Pane)
 	}
 	if err != nil {
-		fmt.Fprintln(stderr, "herdr-switcher-plus:", err)
+		report.fail(err)
 		return 1
 	}
 	return 0
@@ -229,15 +264,15 @@ func writeTree(w io.Writer, roots []*tree.Node) {
 // resolveView applies the precedence: the command line, then the environment
 // an action set, then the config, then the list. The first source that names a
 // view decides, and a name that is no view opens the list.
-func resolveView(explicit, configured string, stderr io.Writer) string {
+func resolveView(explicit, configured string, report reporter) string {
 	if explicit != "" {
 		return explicit
 	}
 	if env := os.Getenv(viewEnv); env != "" {
-		return checkView(env, viewEnv, stderr)
+		return checkView(env, viewEnv, report)
 	}
 	if configured != "" {
-		return checkView(configured, "[ui] view", stderr)
+		return checkView(configured, "[ui] view", report)
 	}
 	return config.DefaultView
 }
@@ -245,9 +280,9 @@ func resolveView(explicit, configured string, stderr io.Writer) string {
 // checkView passes a valid view through, and turns a bad one into the list
 // with a warning. Falling back matches the sort mode and the status filter,
 // and the warning says why the view that was asked for did not open.
-func checkView(name, source string, stderr io.Writer) string {
+func checkView(name, source string, report reporter) string {
 	if err := config.ValidateView(name); err != nil {
-		fmt.Fprintf(stderr, "herdr-switcher-plus: %s: %v, opening the %s\n", source, err, config.DefaultView)
+		report.warn(fmt.Sprintf("%s: %v, opening the %s", source, err, config.DefaultView))
 		return config.DefaultView
 	}
 	return name

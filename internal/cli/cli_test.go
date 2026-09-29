@@ -38,6 +38,7 @@ func fixture() []agents.Row {
 
 // harness replaces every effect Run performs and records what happened.
 type harness struct {
+	notices []string
 	saved   string
 	focused *herdr.Agent
 	seen    ui.Model
@@ -47,8 +48,10 @@ type harness struct {
 func setup(t *testing.T, rows []agents.Row, collectErr error) *harness {
 	t.Helper()
 	h := &harness{}
-	c, lm, sm, f, rp, lc := collect, loadMode, saveMode, focus, runProgram, loadConfig
+	c, lm, sm, f, rp, lc, nt := collect, loadMode, saveMode, focus, runProgram, loadConfig, notify
 	loadConfig = func() (config.Config, error) { return config.Config{}, nil }
+	// A test must never reach the real Herdr, which would show the notice.
+	notify = func(title, body string) { h.notices = append(h.notices, title+": "+body) }
 
 	collect = func() ([]agents.Row, error) { return rows, collectErr }
 	loadMode = func() string { return "" }
@@ -60,7 +63,9 @@ func setup(t *testing.T, rows []agents.Row, collectErr error) *harness {
 	}
 
 	t.Setenv(modeEnv, "")
-	t.Cleanup(func() { collect, loadMode, saveMode, focus, runProgram, loadConfig = c, lm, sm, f, rp, lc })
+	t.Cleanup(func() {
+		collect, loadMode, saveMode, focus, runProgram, loadConfig, notify = c, lm, sm, f, rp, lc, nt
+	})
 	return h
 }
 
@@ -700,5 +705,49 @@ func TestOpenWithoutAViewPassesNone(t *testing.T) {
 	run("--open")
 	if got := strings.Join((*calls)[0], " "); strings.Contains(got, "HERDR_SWITCHER_PLUS_VIEW") {
 		t.Errorf("no view should travel: %q", got)
+	}
+}
+
+// A failed open reaches only the plugin log, so it is raised as a notice too.
+// ui_busy gets words of its own, because the raw reply suggests no action.
+func TestAFailedOpenRaisesANotice(t *testing.T) {
+	h := setup(t, fixture(), nil)
+	prev := openPane
+	t.Cleanup(func() { openPane = prev })
+	openPane = func([]string) error {
+		return errors.New(`exit status 1: {"error":{"code":"ui_busy","message":"a popup pane is already open"}}`)
+	}
+	if code, _, errOut := run("--open"); code != 1 || !strings.Contains(errOut, "ui_busy") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+	if len(h.notices) != 1 || !strings.Contains(h.notices[0], "Another popup is already open") {
+		t.Errorf("notices = %q", h.notices)
+	}
+}
+
+// Any other failure is raised as it is.
+func TestAFailureInThePaneRaisesItsError(t *testing.T) {
+	h := setup(t, nil, errors.New("herdr api snapshot: no server"))
+	run()
+	if len(h.notices) != 1 || !strings.Contains(h.notices[0], "no server") {
+		t.Errorf("notices = %q", h.notices)
+	}
+}
+
+// --list runs at a shell, where stderr is seen, so it raises nothing.
+func TestListRaisesNoNotice(t *testing.T) {
+	h := setup(t, nil, errors.New("no server"))
+	if code, _, _ := run("--list"); code != 1 || len(h.notices) != 0 {
+		t.Errorf("exit %d, notices %q", code, h.notices)
+	}
+}
+
+// A bad view is an unexpected state, so its warning is raised as well.
+func TestABadViewRaisesANotice(t *testing.T) {
+	h := setup(t, fixture(), nil)
+	configView("grid")
+	run()
+	if len(h.notices) != 1 || !strings.Contains(h.notices[0], "opening the list") {
+		t.Errorf("notices = %q", h.notices)
 	}
 }

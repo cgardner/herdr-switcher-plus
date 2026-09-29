@@ -166,6 +166,13 @@ func Focus(a Agent) error {
 	return nil
 }
 
+// Notify raises a Herdr notification. It needs no free popup slot, so it can
+// say why a popup failed to open. It is best effort: a notice that cannot be
+// shown has nowhere better to go, so its failure is dropped.
+func Notify(title, body string) {
+	_, _ = run(Bin(), "notification", "show", title, "--body", body)
+}
+
 // FocusPane moves the user to any pane, including one that runs no agent.
 //
 // `agent focus` rejects a plain shell with agent_not_found, and the CLI has

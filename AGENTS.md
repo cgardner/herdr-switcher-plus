@@ -44,6 +44,11 @@ out of the binary or found by probing, and each one cost real time:
   `HERDR_SOCKET_PATH` speaks newline-delimited JSON: `{id, method, params}` in,
   and `{id, result}` or `{id, error: {code, message}}` out.
   `herdr api schema --json` lists every method.
+- **A failure is invisible unless it is a notification.** An action's stderr
+  reaches only `herdr plugin log list`, and the switcher's pane closes as soon
+  as it exits. `herdr notification show <title> --body <text>` needs no free
+  popup slot, so it works even when the failure is `ui_busy`. `cli.reporter`
+  raises every failure that way, except under `--list`.
 - **Each linked worktree is its own workspace.** Group on `repo_key`, which
   all checkouts of a repository share. `repo_root` sometimes has a trailing
   slash and sometimes not.
@@ -156,7 +161,10 @@ test replaces: `herdr.run`, `agents.loadSnapshot`, `agents.indexTranscripts`,
 `herdr.request`, `tree.collectAgents`, `tree.resolveBranch`,
 `ui.collectRows`, `ui.collectTree`, `cli.loadConfig`, `cli.openPane`,
 `cli.collect`, `cli.collectTree`, `cli.loadMode`, `cli.saveMode`, `cli.focus`,
-`cli.focusPane`, `cli.runTree`, `cli.newProgram`.
+`cli.focusPane`, `cli.notify`, `cli.runTree`, `cli.newProgram`.
+
+A test must replace `cli.notify`, or a failure path shows a real notification
+on the screen of whoever runs the tests. `setup` in the cli tests does this.
 
 Keep new outside calls behind the same pattern. `make cover` holds a 99% floor,
 and three statements are knowingly uncovered: `exec.Command`, `tea.NewProgram`
