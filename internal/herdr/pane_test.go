@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -45,8 +46,8 @@ func stubRequest(t *testing.T, err error) *[]string {
 	t.Helper()
 	var calls []string
 	prev := request
-	request = func(method string, params map[string]string) error {
-		calls = append(calls, method+" "+params["pane_id"])
+	request = func(method string, params map[string]any) error {
+		calls = append(calls, method+" "+fmt.Sprint(params["pane_id"]))
 		return err
 	}
 	t.Cleanup(func() { request = prev })
@@ -128,7 +129,7 @@ func serve(t *testing.T, reply string) <-chan map[string]any {
 
 func TestSocketRequestSendsOneLineAndAcceptsAResult(t *testing.T) {
 	got := serve(t, `{"id":"herdr-switcher-plus","result":{"type":"ok"}}`+"\n")
-	if err := socketRequest("pane.focus", map[string]string{"pane_id": "w2:p2"}); err != nil {
+	if err := socketRequest("pane.focus", map[string]any{"pane_id": "w2:p2"}); err != nil {
 		t.Fatal(err)
 	}
 	req := <-got
@@ -139,7 +140,7 @@ func TestSocketRequestSendsOneLineAndAcceptsAResult(t *testing.T) {
 
 func TestSocketRequestReportsTheErrorReply(t *testing.T) {
 	serve(t, `{"id":"x","error":{"code":"pane_not_found","message":"pane w2:p9 not found"}}`+"\n")
-	err := socketRequest("pane.focus", map[string]string{"pane_id": "w2:p9"})
+	err := socketRequest("pane.focus", map[string]any{"pane_id": "w2:p9"})
 	if err == nil || !strings.Contains(err.Error(), "pane_not_found") {
 		t.Errorf("got %v", err)
 	}

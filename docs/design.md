@@ -100,6 +100,38 @@ command that focuses a pane by its ID. The `pane.focus` socket method does, so
 a shell pane is focused over the socket. An agent pane still goes through
 `agent focus`, the path the list uses.
 
+## Managing the session from the tree
+
+The tree already knows the workspace, the tab, the pane and a directory for
+every line, so it is the place to act on them. The list shows agents only, and
+a workspace with no agent never appears in it, so it gets no management keys.
+
+Every change goes over the socket rather than the CLI. The socket takes the IDs
+that the snapshot gives, and `pane.rename` takes a null label, which is the
+only way to clear a name. No change moves focus, because the switcher is open
+while it runs. After each change the tree reads the snapshot again, and a node
+that is gone leaves the cursor at the same height rather than at the top.
+
+A close asks for `y` first, and any other key cancels. Herdr has no undo for a
+closed pane, and an agent in it stops. A rename and a new workspace ask for a
+name on the line above the pager. That line carries the result too, so a
+refusal from Herdr is visible without a notification.
+
+A move uses `pane.move`, which keeps the pane's terminal and so the process in
+it. That is what makes a move safe for an agent in the middle of a
+conversation, where a close and a new pane would lose it. The pane gets a new
+ID in its new workspace, so the cursor cannot follow it, and stays at the same
+height. The move panel walks the full tree, not the filtered one, so that a
+status filter cannot hide a destination. It offers the pane's own workspace as
+a new tab only when the pane shares its tab with another.
+
+A named session is a separate server with its own socket, and the socket API
+has no session methods. The session panel therefore runs `herdr session list`,
+`stop` and `delete`. It finds the session that the switcher runs in by
+comparing each socket path with `HERDR_SOCKET_PATH`, and refuses to stop that
+one. Herdr itself refuses to delete a running session, and the panel says so
+before it asks.
+
 ## Selected row
 
 The selected agent gets a full-width background bar and a left marker, the way

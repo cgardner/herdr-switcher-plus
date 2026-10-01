@@ -50,6 +50,19 @@ herdr plugin log list | jq '.result.logs[] | select(.plugin_id == "cgardner.herd
 
 `--list` shows no notice, because it runs at a shell where stderr is seen.
 
+## A change from the tree fails
+
+The line above the pager shows Herdr's reply, for example
+`herdr pane.close w2:p9: pane_not_found`. The usual cause is a tree that is
+out of date: the pane or workspace closed after the tree read the snapshot.
+Press `r` to read the session again, then try the change again.
+
+A `dial unix` error means that the switcher cannot reach the Herdr socket.
+Herdr sets `HERDR_SOCKET_PATH` in every pane it starts. Without it, the
+switcher tries `~/.config/herdr/herdr.sock`, which is the default session only.
+`make demo` points the socket into its fixture on purpose, so every change in
+the demo fails this way.
+
 ## An agent shows `—` for its age, and sorts last
 
 No Claude Code transcript matched that pane. The age comes from the session

@@ -37,8 +37,21 @@ type Node struct {
 	// whatever context is not already implied, or the pane's agent kind.
 	Name string
 
+	// Label is the name Herdr holds for a workspace or a pane, before Name
+	// adds context to it. It is empty for a pane the user never named.
+	Label string
+
 	// Linked marks a workspace that is a linked worktree.
 	Linked bool
+
+	// WorkspaceID is the Herdr workspace a workspace node stands for, and
+	// the one a pane sits in. A repository node has none.
+	WorkspaceID string
+
+	// Dir is where a new workspace, tab or pane made from this node starts:
+	// the checkout for a workspace, the main checkout for a repository, and
+	// the working directory for a pane.
+	Dir string
 
 	// Pane is set on a pane node. Agent is set too when an agent runs in it.
 	Pane  herdr.Pane
@@ -107,7 +120,10 @@ func Build(snap *herdr.Snapshot, rows []agents.Row, branch func(string) string) 
 			return n
 		}
 		label, number := snap.Workspace(id)
-		n := &Node{Kind: KindWorkspace, ID: "ws:" + id, Name: label, order: number}
+		n := &Node{Kind: KindWorkspace, ID: "ws:" + id, Name: label, WorkspaceID: id, order: number}
+		if w := snap.FindWorkspace(id); w != nil {
+			n.Label = w.Label
+		}
 		spaces[id] = n
 		spaceOrder = append(spaceOrder, id)
 		return n
@@ -116,9 +132,12 @@ func Build(snap *herdr.Snapshot, rows []agents.Row, branch func(string) string) 
 		addSpace(w.WorkspaceID)
 	}
 	for i, p := range panes {
-		n := &Node{Kind: KindPane, ID: "pane:" + p.PaneID, Pane: p, Agent: byPane[p.PaneID], order: i}
+		n := &Node{Kind: KindPane, ID: "pane:" + p.PaneID, Pane: p, Agent: byPane[p.PaneID], Label: p.Label, WorkspaceID: p.WorkspaceID, Dir: paneDir(p), order: i}
 		n.Name = paneName(n)
 		ws := addSpace(p.WorkspaceID)
+		if ws.Dir == "" {
+			ws.Dir = n.Dir
+		}
 		ws.Children = append(ws.Children, n)
 	}
 
@@ -148,10 +167,19 @@ func Build(snap *herdr.Snapshot, rows []agents.Row, branch func(string) string) 
 		members = append(members, member{repo, ws, w})
 	}
 
+	atMain := map[*Node]bool{}
 	for _, m := range members {
 		wt := m.w.Worktree
 		label := agents.Row{Space: m.space.Name, Branch: branch(wt.CheckoutPath)}
 		m.space.Linked = wt.IsLinked
+		if wt.CheckoutPath != "" {
+			m.space.Dir = wt.CheckoutPath
+		}
+		// A repository starts new work in its main checkout, and in its
+		// first worktree only when no main checkout is open.
+		if !atMain[m.repo] && (m.repo.Dir == "" || !wt.IsLinked) {
+			m.repo.Dir, atMain[m.repo] = m.space.Dir, !wt.IsLinked
+		}
 		if len(m.repo.Children) == 1 {
 			label.Repo, label.Linked = wt.RepoName, wt.IsLinked
 		}
@@ -183,8 +211,21 @@ func repoKey(w *herdr.Worktree) string {
 	return w.RepoName
 }
 
-// paneName is the agent kind for an agent pane, and "shell" for anything else.
+// paneDir is where a pane's shell stands now, which is where a split of it
+// is most likely wanted.
+func paneDir(p herdr.Pane) string {
+	if p.ForegroundCwd != "" {
+		return p.ForegroundCwd
+	}
+	return p.Cwd
+}
+
+// paneName is the name the user gave a pane, else the agent kind for an agent
+// pane, and "shell" for anything else.
 func paneName(n *Node) string {
+	if n.Pane.Label != "" {
+		return n.Pane.Label
+	}
 	if n.Pane.Agent != "" {
 		return n.Pane.Agent
 	}
@@ -283,6 +324,20 @@ func Flatten(nodes []*Node, collapsed map[string]bool) []Line {
 		}
 	}
 	walk(nodes, 0)
+	return out
+}
+
+// GroupsOf lists the ID of every group of one kind that has children, for
+// folding one level of the tree. A group with no children cannot fold, so it
+// is left out, or it would always count as open.
+func GroupsOf(nodes []*Node, kind Kind) []string {
+	var out []string
+	for _, n := range nodes {
+		if n.Kind == kind && len(n.Children) > 0 {
+			out = append(out, n.ID)
+		}
+		out = append(out, GroupsOf(n.Children, kind)...)
+	}
 	return out
 }
 

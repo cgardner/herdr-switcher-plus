@@ -73,7 +73,7 @@ command = [
 id = "open-tree"
 title = "switcher+: every pane as a tree"
 contexts = ["global", "workspace", "pane"]
-description = "Open the switcher as a tree of repository, workspace and pane."
+description = "Open the switcher as a tree of repository, workspace and pane, with keys to open, rename and close them, and a panel for named sessions."
 command = [
   "sh",
   "-c",
