@@ -10,6 +10,20 @@ carries only what those cannot tell you.
 reference, `docs/design.md` the reasoning behind the decisions, and
 `docs/troubleshooting.md` the failure modes.
 
+## Every test passes before a commit, a push or a release
+
+This is a requirement, not a habit. Before each commit, each push, and each
+merge of a pull request or a release pull request:
+
+1. Run `go clean -testcache`, so that no cached result hides a failure.
+2. Run `make ci`. It runs gofmt, `go vet`, the generated-docs check and every
+   test under the 99% coverage floor, as the CI workflow does.
+3. Stop if anything fails. Fix the cause, then run both steps again.
+
+Never commit, push or merge over a failure. Never skip, delete or weaken a
+test to make a run pass. A merge also waits for the CI checks on the pull
+request to pass on GitHub, because they run on Linux as well as macOS.
+
 ## Do not sort on the file modification time
 
 The single trap in this codebase. Claude Code appends bookkeeping records to a
@@ -58,6 +72,18 @@ out of the binary or found by probing, and each one cost real time:
   be ordered by last message, even though `agent_panel_sort` offers only
   `spaces` and `priority`. It has no CLI, and the snapshot does not report the
   resulting order, so only a human can confirm it visually.
+- **A named session is its own server.** The socket API has no session
+  methods, and a socket reaches only its own session. `herdr session list
+  --json`, `stop` and `delete` manage them. A refused command prints a JSON
+  error on stderr, and `herdr.cliError` keeps only its message.
+- **`pane.move` keeps the terminal and changes the ID.** The pane is
+  renumbered in its new workspace (`w4Y:p1` became `w4Z:p2`), but its
+  `terminal_id` and process stay. A workspace that loses its last pane closes.
+  The destination is `new_tab`, `new_workspace`, or `tab` with a `split` and an
+  optional `target_pane_id`.
+- **`pane.rename` clears a name with a null label.** The snapshot then omits
+  `label` from the pane. `workspace.rename` requires a label, and a
+  `workspace.create` with none takes the directory's name.
 
 ## Herdr reports no branch
 
@@ -108,6 +134,10 @@ commented example and loads it, so the file cannot drift from the registry.
 and sample listing comes from it. A real list names an employer, colleagues,
 private repositories and the text of the last message, and this repository is
 public.
+
+`scripts/demo.sh` sets `HERDR_SOCKET_PATH` inside its fixture. A demo
+started from a real pane inherits the real socket otherwise, and a change made
+in the demo's tree would then close or rename something real.
 
 Test fixtures use the same invented names. If a new test needs a project name,
 take one from `scripts/demo_fixture.py` rather than from the machine you are on.
@@ -161,7 +191,8 @@ test replaces: `herdr.run`, `agents.loadSnapshot`, `agents.indexTranscripts`,
 `herdr.request`, `tree.collectAgents`, `tree.resolveBranch`,
 `ui.collectRows`, `ui.collectTree`, `cli.loadConfig`, `cli.openPane`,
 `cli.collect`, `cli.collectTree`, `cli.loadMode`, `cli.saveMode`, `cli.focus`,
-`cli.focusPane`, `cli.notify`, `cli.runTree`, `cli.newProgram`.
+`cli.focusPane`, `cli.notify`, `cli.runTree`, `cli.newProgram`, and `ui.ops`,
+which holds every change the tree makes to the session.
 
 A test must replace `cli.notify`, or a failure path shows a real notification
 on the screen of whoever runs the tests. `setup` in the cli tests does this.
