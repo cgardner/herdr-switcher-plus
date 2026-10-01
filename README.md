@@ -122,13 +122,58 @@ that most wants you, the newest age and the agent count.
 | `space` | open or close the group |
 | `enter` | focus that pane, or open or close the group |
 | `e` `c` | open or close every group |
+| `W` | fold every workspace and worktree to one line, or open them all again |
+| `T` | fold every repository, which holds its worktrees, or open them all again |
 | `a` `b` `w` `i` `d` | show all, blocked, working, idle or done |
 | `r` | refresh, holding the cursor in place |
 | `q` `esc` | close |
 
-A status filter opens every group, so that a match is never folded out of
-sight. A tree longer than the pane turns whole pages, and the dots under it
+`W` and `T` each touch one level and leave the other as it was. So `W` then
+`T` shows only the roots, and a second `T` opens the repositories with their
+worktrees still folded. Each key folds when any group of its level is open,
+and opens them all when none is. A status filter opens every group, so that a
+match is never folded out of sight. A tree longer than the pane turns whole pages, and the dots under it
 show which page is on screen, as in the list. `herdr-switcher-plus --tree --list` prints the tree as plain text.
+
+### Managing workspaces, panes and sessions
+
+The tree can also change the session. Each key acts on the line under the
+cursor, and `?` swaps the footer to list these keys.
+
+| key | action |
+|---|---|
+| `n` | open a new workspace in the directory of that line, and ask for its name |
+| `t` | open a new tab in that workspace, or in the workspace of that pane |
+| `R` | rename that workspace, or name that pane |
+| `x` | close that workspace or pane, after a `y` to confirm |
+| `v` `s` | split that pane to the right, or down |
+| `m` | move that pane to another workspace, beside another pane, or to a new workspace |
+| `S` | open the session panel |
+| `?` | show these keys in the footer, or the browsing keys again |
+
+A new workspace starts in the checkout of the workspace, the main checkout of
+a repository, or the current directory of a pane. A blank name lets Herdr name
+it after its directory, and a blank pane name clears the name. A repository
+takes its name from git, so `R` and `x` refuse it and say why.
+
+`m` moves an agent conversation without a restart. Herdr keeps the pane's
+terminal, so the agent carries on where it was. The panel lists a new
+workspace, each workspace as a new tab, and each pane with its last message, so
+that one conversation can be told from another. `enter` moves the pane, and
+beside a pane `s` splits down rather than right. To see two conversations side
+by side, move one beside the other. When the pane is the last one in its
+workspace, Herdr closes that workspace, and the notice says so. Two
+conversations cannot merge into one, because each agent keeps its own
+transcript.
+
+The session panel lists Herdr's named sessions, which `herdr session list`
+shows too. `x` stops a running session and `D` deletes a stopped one, each
+after a `y`. The panel refuses to stop the session that the switcher runs in,
+because that would close every pane in it. `esc` goes back to the tree.
+
+Nothing moves focus. The switcher stays open, the tree reads the session again
+after each change, and the line above the pager says what happened or why
+Herdr refused.
 
 ## Sort modes
 
@@ -248,6 +293,8 @@ token, the style fields, the rules, and the errors a bad file earns.
   no transcript here, so its row shows `—` and falls to the bottom, ordered by
   Herdr's `state_change_seq` counter.
 - The list is a snapshot. `r` refreshes it. There is no live auto-sort yet.
+- The session panel cannot attach to another session. A popup is not a
+  terminal that `herdr session attach` can take over, so attach from a shell.
 - Filter matches are not highlighted. The match indexes address the filter
   value, but the list delegate paints them onto the rendered title, where an
   index landing inside a color sequence splits it and leaks escape text.

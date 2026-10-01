@@ -298,3 +298,75 @@ func TestCollectReportsAFailure(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+// find returns the node with this ID anywhere in the tree.
+func find(nodes []*Node, id string) *Node {
+	for _, n := range nodes {
+		if n.ID == id {
+			return n
+		}
+		if f := find(n.Children, id); f != nil {
+			return f
+		}
+	}
+	return nil
+}
+
+// Every node an action can start from says where new work begins.
+func TestBuildGivesEachNodeAWorkspaceAndADirectory(t *testing.T) {
+	snap, rows := fixture()
+	snap.Workspaces[2].Worktree.CheckoutPath = "/co/billing"
+	snap.Panes[1].Cwd, snap.Panes[1].ForegroundCwd = "/co/api-gateway", "/co/api-gateway/cmd"
+	snap.Panes[4].Cwd = "/home/dotfiles"
+	roots := Build(snap, rows, noBranch)
+
+	cases := []struct{ id, ws, dir string }{
+		{"ws:w3", "w3", "/co/billing"},
+		{"ws:w4", "w4", "/home/dotfiles"},
+		{"pane:w1:p2", "w1", "/co/api-gateway/cmd"},
+		{"pane:w4:p1", "w4", "/home/dotfiles"},
+		{"repo:/git/platform", "", "/co/platform"},
+	}
+	for _, c := range cases {
+		n := find(roots, c.id)
+		if n == nil {
+			t.Fatalf("no node %s", c.id)
+		}
+		if n.WorkspaceID != c.ws || n.Dir != c.dir {
+			t.Errorf("%s: workspace %q dir %q, want %q %q", c.id, n.WorkspaceID, n.Dir, c.ws, c.dir)
+		}
+	}
+}
+
+// A repository starts new work in its main checkout when one is open, even
+// when a linked worktree comes first in the sidebar.
+func TestARepositoryPrefersItsMainCheckout(t *testing.T) {
+	snap, rows := fixture()
+	snap.Workspaces[1].Worktree.CheckoutPath = "/co/auth"
+	snap.Workspaces[2].Worktree.CheckoutPath, snap.Workspaces[2].Worktree.IsLinked = "/co/main", false
+	snap.Workspaces[4].Worktree.CheckoutPath = "/co/notify"
+	if got := find(Build(snap, rows, noBranch), "repo:/git/platform").Dir; got != "/co/main" {
+		t.Errorf("dir = %q, want the main checkout", got)
+	}
+}
+
+func TestAPaneLabelNamesThePane(t *testing.T) {
+	snap, rows := fixture()
+	snap.Panes[0].Label = "reviewer"
+	if got := find(Build(snap, rows, noBranch), "pane:w1:p1").Name; got != "reviewer" {
+		t.Errorf("name = %q", got)
+	}
+}
+
+// A group with no children cannot fold, so it never counts as open.
+func TestGroupsOfListsOneKindWithChildren(t *testing.T) {
+	roots := build()
+	roots = append(roots, &Node{Kind: KindWorkspace, ID: "ws:empty"})
+	if got := strings.Join(GroupsOf(roots, KindRepo), " "); got != "repo:/git/platform" {
+		t.Errorf("repos = %q", got)
+	}
+	got := GroupsOf(roots, KindWorkspace)
+	if len(got) != 5 || strings.Contains(strings.Join(got, " "), "ws:empty") {
+		t.Errorf("workspaces = %v", got)
+	}
+}

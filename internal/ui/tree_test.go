@@ -25,10 +25,10 @@ func treeFixture() []*tree.Node {
 			{WorkspaceID: "w3", Label: "api-gateway", Number: 3, Worktree: wt("api-gateway", false)},
 		},
 		Panes: []herdr.Pane{
-			{PaneID: "w1:p1", WorkspaceID: "w1", Agent: "claude"},
-			{PaneID: "w2:p1", WorkspaceID: "w2", Agent: "claude"},
-			{PaneID: "w2:p2", WorkspaceID: "w2", Title: "psql billing"},
-			{PaneID: "w3:p1", WorkspaceID: "w3", Agent: "claude"},
+			{PaneID: "w1:p1", WorkspaceID: "w1", Agent: "claude", Cwd: "/co/auth"},
+			{PaneID: "w2:p1", WorkspaceID: "w2", Agent: "claude", Cwd: "/co/billing"},
+			{PaneID: "w2:p2", WorkspaceID: "w2", Title: "psql billing", Cwd: "/co/billing"},
+			{PaneID: "w3:p1", WorkspaceID: "w3", Agent: "claude", Cwd: "/co/api"},
 		},
 	}
 	rows := []agents.Row{
@@ -344,5 +344,66 @@ func TestShellTextFallsBackToTheDirectory(t *testing.T) {
 	n.Pane.ForegroundCwd = "/srv/web-client"
 	if got := shellText(n); got != "/srv/web-client" {
 		t.Errorf("the foreground directory wins: %q", got)
+	}
+}
+
+func TestWFoldsEveryWorkspaceAndOpensThemAgain(t *testing.T) {
+	m := pressTree(newTree(t, 20), "down", "down", "W")
+	want := []string{"▾ platform", "▸ ⑂ auth-service", "▸ ⑂ billing", "▸ api-gateway"}
+	for i, got := range shown(m) {
+		if i >= len(want) || !strings.HasPrefix(got, want[i]) {
+			t.Fatalf("got %v, want %v", shown(m), want)
+		}
+	}
+	if got := cursorText(m); !strings.HasPrefix(got, "▸ ⑂ auth-service") {
+		t.Errorf("the cursor climbs to its workspace: %q", got)
+	}
+	m = pressTree(m, "W")
+	if got := len(shown(m)); got != 8 {
+		t.Errorf("a second W opens them all, got %v", shown(m))
+	}
+	if got := cursorText(m); !strings.HasPrefix(got, "▾ ⑂ auth-service") {
+		t.Errorf("the cursor stays on its workspace: %q", got)
+	}
+}
+
+// W folds whatever is still open, so one open workspace among folded ones
+// folds rather than opening the rest.
+func TestWFoldsWhenAnyWorkspaceIsOpen(t *testing.T) {
+	m := pressTree(newTree(t, 20), "W", "down", "right", "W")
+	if got := len(shown(m)); got != 4 {
+		t.Errorf("got %v", shown(m))
+	}
+}
+
+func TestTFoldsEveryRepositoryAndKeepsTheWorkspaces(t *testing.T) {
+	m := pressTree(newTree(t, 20), "W", "down", "down", "T")
+	want := []string{"▸ platform", "▸ api-gateway"}
+	if got := shown(m); len(got) != 2 || !strings.HasPrefix(got[0], want[0]) || !strings.HasPrefix(got[1], want[1]) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	if got := cursorText(m); !strings.HasPrefix(got, "▸ platform") {
+		t.Errorf("the cursor climbs to its repository: %q", got)
+	}
+	// Opening the repositories again shows their workspaces still folded.
+	if got := shown(pressTree(m, "T")); len(got) != 4 || !strings.HasPrefix(got[1], "▸ ⑂ auth-service") {
+		t.Errorf("got %v", got)
+	}
+}
+
+func TestTLeavesAWorkspaceAtTheRootOpen(t *testing.T) {
+	m := pressTree(newTree(t, 20), "end", "T")
+	if got := len(shown(m)); got != 3 {
+		t.Errorf("got %v", shown(m))
+	}
+	if got := cursorText(m); !strings.Contains(got, "Rate limiter") {
+		t.Errorf("a visible cursor stays put: %q", got)
+	}
+}
+
+func TestFoldingAnEmptyTreeDoesNothing(t *testing.T) {
+	m := pressTree(NewTree(nil, agents.StatusAll), "W", "T")
+	if len(m.lines) != 0 {
+		t.Errorf("lines = %v", m.lines)
 	}
 }

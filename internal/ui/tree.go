@@ -29,7 +29,7 @@ func refreshTree() tea.Msg {
 
 // treeHelp is the footer. The tree draws its own lines rather than using the
 // bubbles list, whose items are flat and whose filter reorders them.
-const treeHelp = "enter jump/fold · ←/→ fold · e/c expand/collapse all · a/b/w/i/d status · r refresh · q quit"
+const treeHelp = "enter jump/fold · ←/→ fold · e/c all · W/T spaces/repos · a/b/w/i/d status · r refresh · ? manage · q quit"
 
 // TreeModel is the Bubble Tea model for the tree switcher.
 type TreeModel struct {
@@ -45,6 +45,16 @@ type TreeModel struct {
 	bg        lipgloss.Color
 	err       error
 	quitting  bool
+
+	// The session management state: the open question, the last notice,
+	// whether the footer lists the management keys, and the session panel
+	// while it is open.
+	ask        *ask
+	notice     string
+	noticeErr  bool
+	showManage bool
+	sessions   *sessionPanel
+	mover      *movePanel
 
 	// Chosen is the pane the user picked. The caller focuses it after the
 	// program exits, as it does for the list.
@@ -176,11 +186,53 @@ func (m TreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case treeRefreshedMsg:
 		m.err = msg.err
 		if msg.err == nil {
+			// A closed node leaves the cursor where it stood rather than
+			// sending it to the top.
+			at, id := m.cursor, m.currentID()
 			m.roots, m.now = msg.roots, time.Now()
-			m.relayout(m.currentID())
+			m.relayout(id)
+			if m.currentID() != id {
+				m.cursor = max(min(at, len(m.lines)-1), 0)
+				m.scroll()
+			}
 		}
 
+	case opDoneMsg:
+		if msg.err != nil {
+			m.fail(msg.err)
+			return m, nil
+		}
+		m.say(msg.done)
+		if m.sessions != nil {
+			return m, loadSessions
+		}
+		return m, refreshTree
+
+	case sessionsMsg:
+		if m.sessions == nil {
+			break
+		}
+		if msg.err != nil {
+			m.fail(msg.err)
+			break
+		}
+		m.sessions.list = msg.list
+		m.sessions.cursor = max(min(m.sessions.cursor, len(msg.list)-1), 0)
+
 	case tea.KeyMsg:
+		if m.ask != nil {
+			return m.answer(msg)
+		}
+		m.notice = ""
+		if m.sessions != nil {
+			return m.sessionKey(msg.String())
+		}
+		if m.mover != nil {
+			return m.moveKey(msg.String())
+		}
+		if next, cmd, ok := m.manageKey(msg.String()); ok {
+			return next, cmd
+		}
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			m.quitting = true
@@ -231,6 +283,10 @@ func (m TreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.collapsed[id] = true
 			}
 			m.relayout(keep)
+		case "W":
+			m.foldKind(tree.KindWorkspace)
+		case "T":
+			m.foldKind(tree.KindRepo)
 		case "r":
 			return m, refreshTree
 		case "a", "b", "w", "i", "d":
@@ -242,6 +298,46 @@ func (m TreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// foldKind folds every group of one kind, or opens them all again when none
+// of them is open, so one key does both. Groups of the other kinds keep their
+// state. The cursor climbs to the nearest line still visible.
+func (m *TreeModel) foldKind(kind tree.Kind) {
+	ids := tree.GroupsOf(m.roots, kind)
+	fold := false
+	for _, id := range ids {
+		fold = fold || !m.collapsed[id]
+	}
+	chain := m.ancestry()
+	for _, id := range ids {
+		m.collapsed[id] = fold
+	}
+	keep := ""
+	for _, n := range chain {
+		keep = n.ID
+		if m.collapsed[n.ID] {
+			break
+		}
+	}
+	m.relayout(keep)
+}
+
+// ancestry is the line under the cursor and every group above it, root
+// first.
+func (m TreeModel) ancestry() []*tree.Node {
+	if m.cursor >= len(m.lines) {
+		return nil
+	}
+	chain := []*tree.Node{m.lines[m.cursor].Node}
+	depth := m.lines[m.cursor].Depth
+	for i := m.cursor - 1; i >= 0 && depth > 0; i-- {
+		if m.lines[i].Depth < depth {
+			depth = m.lines[i].Depth
+			chain = append([]*tree.Node{m.lines[i].Node}, chain...)
+		}
+	}
+	return chain
 }
 
 func (m TreeModel) rootOf(i int) string {
@@ -262,8 +358,25 @@ func (m TreeModel) View() string {
 	if m.status != agents.StatusAll {
 		title += " · " + m.status.Label()
 	}
+	if m.sessions != nil {
+		title = "herdr sessions"
+	}
+	if p := m.mover; p != nil {
+		title = "move " + p.pane.Name + " to"
+		if p.from != nil {
+			title = "move " + p.pane.Name + " from " + p.from.Name + " to"
+		}
+	}
 	out := []string{" " + titleStyle.Render(title), ""}
 
+	if m.sessions != nil {
+		body := m.sessionLines()
+		out = append(out, body[:min(len(body), m.body())]...)
+		return m.footer(out, "")
+	}
+	if m.mover != nil {
+		return m.footer(append(out, m.moveLines()...), "")
+	}
 	if len(m.lines) == 0 {
 		out = append(out, "  "+styled(lipgloss.NewStyle(), previewColor, false, false).Render("nothing to show"))
 	}
@@ -271,11 +384,17 @@ func (m TreeModel) View() string {
 	for i := m.offset; i < end; i++ {
 		out = append(out, m.renderLine(m.lines[i], i == m.cursor))
 	}
+	return m.footer(out, m.pager())
+}
+
+// footer pads the body to the pane's height, then adds the status line, the
+// pager and the help.
+func (m TreeModel) footer(out []string, pager string) string {
 	for len(out) < m.height-3 {
 		out = append(out, "")
 	}
-	out = append(out, "", m.pager())
-	out = append(out, " "+styled(lipgloss.NewStyle(), previewColor, false, false).Render(treeHelp))
+	out = append(out, m.statusLine(), pager)
+	out = append(out, " "+styled(lipgloss.NewStyle(), previewColor, false, false).Render(m.help()))
 	return strings.Join(out, "\n")
 }
 

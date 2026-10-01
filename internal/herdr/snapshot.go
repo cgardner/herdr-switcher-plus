@@ -94,6 +94,10 @@ type Pane struct {
 	ForegroundCwd string `json:"foreground_cwd"`
 	Title         string `json:"terminal_title_stripped"`
 	Focused       bool   `json:"focused"`
+
+	// Label is the name the user gave the pane, and is empty until they
+	// give one.
+	Label string `json:"label"`
 }
 
 // Snapshot is the subset of session.snapshot this plugin reads.
@@ -183,7 +187,7 @@ func FocusPane(p Pane) error {
 	bin := Bin()
 	_, _ = run(bin, "workspace", "focus", p.WorkspaceID)
 	_, _ = run(bin, "tab", "focus", p.TabID)
-	if err := request("pane.focus", map[string]string{"pane_id": p.PaneID}); err != nil {
+	if err := request("pane.focus", map[string]any{"pane_id": p.PaneID}); err != nil {
 		return fmt.Errorf("herdr pane.focus %s: %w", p.PaneID, err)
 	}
 	return nil
@@ -210,7 +214,7 @@ const socketTimeout = 2 * time.Second
 // socketRequest writes one JSON request and reads one reply. The protocol is
 // newline-delimited JSON: a request carries an id, a method and params, and
 // the reply carries either a result or an error with a code and a message.
-func socketRequest(method string, params map[string]string) error {
+func socketRequest(method string, params map[string]any) error {
 	conn, err := net.DialTimeout("unix", SocketPath(), socketTimeout)
 	if err != nil {
 		return err
@@ -218,7 +222,7 @@ func socketRequest(method string, params map[string]string) error {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(socketTimeout))
 
-	// Marshal cannot fail on strings alone.
+	// Marshal cannot fail on the strings, booleans and nils that params hold.
 	req, _ := json.Marshal(map[string]any{"id": "herdr-switcher-plus", "method": method, "params": params})
 	// A failed write needs no check of its own: the read that follows fails
 	// too, and reports it.
