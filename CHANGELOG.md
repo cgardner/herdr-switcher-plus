@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0](https://github.com/cgardner/herdr-switcher-plus/compare/v0.1.1...v0.2.0) (2026-10-01)
+
+
+### Features
+
+* add a tree view of every pane, and a config key to choose it ([cfe201c](https://github.com/cgardner/herdr-switcher-plus/commit/cfe201c32922a3d0e02585e5cfd3815124b266ac))
+* let the config choose where the switcher opens ([7bbeb2c](https://github.com/cgardner/herdr-switcher-plus/commit/7bbeb2c5c715101e95311358d44278bea692d4a5))
+* manage workspaces, panes and sessions from the tree view ([240b2ed](https://github.com/cgardner/herdr-switcher-plus/commit/240b2ed4275cb3683b3c30ea26301428a3540126))
+* show a Herdr notification when the switcher cannot open ([628057d](https://github.com/cgardner/herdr-switcher-plus/commit/628057dee888297ef2116ec1e9ccabd3aec5b99c))
+
 ## [0.1.1](https://github.com/cgardner/herdr-switcher-plus/compare/v0.1.0...v0.1.1) (2026-09-18)
 
 
