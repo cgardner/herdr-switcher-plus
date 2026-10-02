@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/cgardner/herdr-switcher-plus/compare/v0.2.0...v0.3.0) (2026-10-02)
+
+
+### Features
+
+* highlight pane names and search the tree view ([543369c](https://github.com/cgardner/herdr-switcher-plus/commit/543369ca721f81596ab96e5c35cb6cafce59a216))
+
 ## [0.2.0](https://github.com/cgardner/herdr-switcher-plus/compare/v0.1.1...v0.2.0) (2026-10-01)
 
 
