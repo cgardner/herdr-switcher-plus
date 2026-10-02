@@ -107,7 +107,7 @@ func (m TreeModel) moveKey(key string) (tea.Model, tea.Cmd) {
 // moveTo starts the move to one choice. A new workspace asks for its name
 // first, so it starts no command until the prompt is answered.
 func (m *TreeModel) moveTo(p *movePanel, c moveChoice, split string) tea.Cmd {
-	id, name := p.pane.Pane.PaneID, p.pane.Name
+	id, name := p.pane.Pane.PaneID, p.pane.Title()
 	switch c.kind {
 	case moveToWorkspace:
 		ws := c.space.WorkspaceID
@@ -115,7 +115,7 @@ func (m *TreeModel) moveTo(p *movePanel, c moveChoice, split string) tea.Cmd {
 	case moveBeside:
 		tab, target := c.pane.Pane.TabID, c.pane.Pane.PaneID
 		return perform(func() error { return ops.moveBeside(id, tab, target, split) },
-			"moved "+name+" beside "+c.pane.Name+" in "+c.space.Name+p.leaving(c))
+			"moved "+name+" beside "+c.pane.Title()+" in "+c.space.Name+p.leaving(c))
 	}
 	m.prompt("move "+name+" to a new workspace, name:", "Herdr's default", "", "moved "+name+" to a new workspace"+p.leaving(c),
 		func(label string) error { return ops.moveToNew(id, label) })
@@ -163,6 +163,9 @@ func (m TreeModel) moveLines() []string {
 				line += seg("    ", "", false)
 			}
 			line += seg("beside "+pad(c.pane.Name, 8)+" ", textColorFor(selected), false)
+			line += nameSeg(c.pane, func(text, fg string, bold, dim bool) string {
+				return styled(base, fg, bold, dim).Render(text)
+			})
 			line += seg(choiceText(c.pane), previewColorFor(selected), false)
 		}
 		out = append(out, fill(line, m.width, base))

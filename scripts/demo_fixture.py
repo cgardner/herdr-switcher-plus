@@ -16,12 +16,16 @@ FIXTURE = sys.argv[1]
 HOME = os.path.join(FIXTURE, "home")
 CHECKOUTS = os.path.join(FIXTURE, "checkouts")
 
-# Shell panes beside the agents, for the tree view: (space, title).
+# Shell panes beside the agents, for the tree view: (space, title, label).
+# A label is what `herdr pane rename` sets, and None leaves the pane unnamed.
 SHELLS = [
-    ("api-gateway", "go test ./... -run RateLimit"),
-    ("billing", "psql billing"),
-    ("web-client", "npm run dev"),
+    ("api-gateway", "go test ./... -run RateLimit", None),
+    ("billing", "psql billing", "db"),
+    ("web-client", "npm run dev", None),
 ]
+
+# Agent names, as `herdr agent rename` sets them, which the tree highlights.
+AGENT_NAMES = {"auth-service": "token-expiry"}
 
 # (space, repo, linked, branch, minutes ago, status, role, message)
 SESSIONS = [
@@ -79,14 +83,18 @@ for i, (space, repo, linked, branch, mins, status, role, text) in enumerate(SESS
         "state_change_seq": 100 - i,
         "agent_session": {"kind": "id", "value": session_id},
     })
+    if space in AGENT_NAMES:
+        agents[-1]["name"] = AGENT_NAMES[space]
 
-    for n, (shell_space, title) in enumerate(SHELLS):
+    for n, (shell_space, title, label) in enumerate(SHELLS):
         if shell_space == space:
             shells.append({
                 "agent_status": "unknown", "cwd": checkout,
                 "pane_id": "%s:p%d" % (ws_id, n + 2), "tab_id": "%s:t2" % ws_id,
                 "workspace_id": ws_id, "terminal_title_stripped": title,
             })
+            if label:
+                shells[-1]["label"] = label
 
     # The transcript the age and the preview come from.
     project = os.path.join(HOME, ".claude", "projects", checkout.replace("/", "-"))

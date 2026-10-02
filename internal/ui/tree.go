@@ -9,6 +9,7 @@ import (
 	"github.com/cgardner/herdr-switcher-plus/internal/tree"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/paginator"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -29,7 +30,7 @@ func refreshTree() tea.Msg {
 
 // treeHelp is the footer. The tree draws its own lines rather than using the
 // bubbles list, whose items are flat and whose filter reorders them.
-const treeHelp = "enter jump/fold · ←/→ fold · e/c all · W/T spaces/repos · a/b/w/i/d status · r refresh · ? manage · q quit"
+const treeHelp = "enter jump/fold · / search · ←/→ fold · e/c all · W/T spaces/repos · a/b/w/i/d status · r refresh · ? manage · q quit"
 
 // TreeModel is the Bubble Tea model for the tree switcher.
 type TreeModel struct {
@@ -56,6 +57,10 @@ type TreeModel struct {
 	sessions   *sessionPanel
 	mover      *movePanel
 
+	// query narrows the tree, and search is the input while it is open.
+	query  string
+	search *textinput.Model
+
 	// Chosen is the pane the user picked. The caller focuses it after the
 	// program exits, as it does for the list.
 	Chosen *tree.Node
@@ -71,7 +76,7 @@ func NewTree(roots []*tree.Node, status agents.StatusFilter) TreeModel {
 // relayout rebuilds the visible lines and puts the cursor back on the node
 // with this ID, or on the first line when that node is gone.
 func (m *TreeModel) relayout(keep string) {
-	m.lines = tree.Flatten(tree.Filter(m.roots, m.status), m.collapsed)
+	m.lines = tree.Flatten(tree.Search(tree.Filter(m.roots, m.status), m.query), m.collapsed)
 	m.cursor = 0
 	for i, l := range m.lines {
 		if l.Node.ID == keep {
@@ -230,6 +235,20 @@ func (m TreeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.mover != nil {
 			return m.moveKey(msg.String())
 		}
+		if m.search != nil {
+			return m.searchKey(msg)
+		}
+		switch msg.String() {
+		case "/":
+			m.startSearch()
+			return m, nil
+		case "esc":
+			// esc clears a search before it closes the switcher.
+			if m.query != "" {
+				m.setQuery("")
+				return m, nil
+			}
+		}
 		if next, cmd, ok := m.manageKey(msg.String()); ok {
 			return next, cmd
 		}
@@ -358,13 +377,16 @@ func (m TreeModel) View() string {
 	if m.status != agents.StatusAll {
 		title += " · " + m.status.Label()
 	}
+	if m.query != "" {
+		title += " · /" + m.query
+	}
 	if m.sessions != nil {
 		title = "herdr sessions"
 	}
 	if p := m.mover; p != nil {
-		title = "move " + p.pane.Name + " to"
+		title = "move " + p.pane.Title() + " to"
 		if p.from != nil {
-			title = "move " + p.pane.Name + " from " + p.from.Name + " to"
+			title = "move " + p.pane.Title() + " from " + p.from.Name + " to"
 		}
 	}
 	out := []string{" " + titleStyle.Render(title), ""}
@@ -378,7 +400,11 @@ func (m TreeModel) View() string {
 		return m.footer(append(out, m.moveLines()...), "")
 	}
 	if len(m.lines) == 0 {
-		out = append(out, "  "+styled(lipgloss.NewStyle(), previewColor, false, false).Render("nothing to show"))
+		empty := "nothing to show"
+		if m.query != "" {
+			empty = "no pane matches /" + m.query
+		}
+		out = append(out, "  "+styled(lipgloss.NewStyle(), previewColor, false, false).Render(empty))
 	}
 	end := min(m.offset+m.body(), len(m.lines))
 	for i := m.offset; i < end; i++ {
@@ -439,13 +465,26 @@ func (m TreeModel) renderLine(l tree.Line, selected bool) string {
 		line += seg(glyph(status)+" ", statusColors[status], false, false)
 		line += seg(pad(status, 7)+" ", statusColors[status], false, false)
 		line += seg(n.Name+"  ", textColorFor(selected), false, false)
+		line += nameSeg(n, seg)
 		line += seg(roleMark(r.Last.Role)+previewText(*r), previewColorFor(selected), false, false)
 		return fill(line, m.width, base)
 	}
 	line += seg("    · ", previewColorFor(selected), false, false)
 	line += seg(pad(n.Name, 8)+" ", previewColorFor(selected), false, false)
+	line += nameSeg(n, seg)
 	line += seg(shellText(n), previewColorFor(selected), false, false)
 	return fill(line, m.width, base)
+}
+
+// nameSeg draws the name the user gave a pane, in bold and in the accent
+// color, so that it stands out from the kind and the message beside it. It is
+// the name a user scans for, so it gets the strongest style on the line. A
+// pane with no name draws nothing.
+func nameSeg(n *tree.Node, seg func(string, string, bool, bool) string) string {
+	if n.Label == "" {
+		return ""
+	}
+	return seg(n.Label, accentColor, true, false) + seg("  ", "", false, false)
 }
 
 // summary is what a closed group shows after its name: the status that most

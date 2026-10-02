@@ -486,10 +486,11 @@ func treeRoots() []*tree.Node {
 		Panes: []herdr.Pane{
 			{PaneID: "w1:p1", WorkspaceID: "w1", Agent: "claude"},
 			{PaneID: "w2:p1", WorkspaceID: "w2", Agent: "claude"},
-			{PaneID: "w2:p2", WorkspaceID: "w2", Title: "psql billing"},
+			{PaneID: "w2:p2", WorkspaceID: "w2", Title: "psql billing", Label: "db"},
 		},
 	}
 	rows := []agents.Row{row("w1:p1", "auth-service", "blocked", time.Minute), row("w2:p1", "billing", "done", time.Hour)}
+	rows[0].Agent.Name = "auth-fix"
 	return tree.Build(snap, rows, func(string) string { return "" })
 }
 
@@ -517,7 +518,7 @@ func TestTreeListPrintsEveryLevel(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}
-	for _, want := range []string{"platform\n", "  ⑂ auth-service\n", "blocked", "shell", "psql billing"} {
+	for _, want := range []string{"platform\n", "  ⑂ auth-service\n", "blocked", "shell", "[db] psql billing", "[auth-fix] "} {
 		if !strings.Contains(out, want) {
 			t.Errorf("%q missing from\n%s", want, out)
 		}

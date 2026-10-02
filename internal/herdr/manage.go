@@ -53,6 +53,16 @@ func RenamePane(id, label string) error {
 	return wrap("pane.rename", id, request("pane.rename", map[string]any{"pane_id": id, "label": value}))
 }
 
+// RenameAgent names the agent in a pane, which is the name
+// `herdr agent rename` sets. An empty name clears it.
+func RenameAgent(paneID, name string) error {
+	var value any
+	if name != "" {
+		value = name
+	}
+	return wrap("agent.rename", paneID, request("agent.rename", map[string]any{"target": paneID, "name": value}))
+}
+
 // ClosePane closes a pane, and whatever runs in it.
 func ClosePane(id string) error {
 	return wrap("pane.close", id, request("pane.close", map[string]any{"pane_id": id}))

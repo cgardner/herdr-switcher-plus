@@ -82,7 +82,9 @@ out of the binary or found by probing, and each one cost real time:
   The destination is `new_tab`, `new_workspace`, or `tab` with a `split` and an
   optional `target_pane_id`.
 - **`pane.rename` clears a name with a null label.** The snapshot then omits
-  `label` from the pane. `workspace.rename` requires a label, and a
+  `label` from the pane. `agent.rename` (`target`, `name`) is a second,
+  separate name: it shows as `name` on the agent entry only, never on the
+  pane, and a null name clears it. `workspace.rename` requires a label, and a
   `workspace.create` with none takes the directory's name.
 
 ## Herdr reports no branch

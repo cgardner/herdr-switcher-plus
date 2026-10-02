@@ -254,11 +254,20 @@ func writeTree(w io.Writer, roots []*tree.Node) {
 			fmt.Fprintf(w, "%s%s\n", indent, name)
 		case n.Agent != nil:
 			r := n.Agent
-			fmt.Fprintf(w, "%s%4s  %-8s %-8s %s\n", indent, r.Age(now), n.Name, r.Agent.Status, trunc(r.Last.Text, 50))
+			fmt.Fprintf(w, "%s%4s  %-8s %-8s %s%s\n", indent, r.Age(now), n.Name, r.Agent.Status, named(n), trunc(r.Last.Text, 50))
 		default:
-			fmt.Fprintf(w, "%s%4s  %-8s %-8s %s\n", indent, "", n.Name, "", trunc(n.Pane.Title, 50))
+			fmt.Fprintf(w, "%s%4s  %-8s %-8s %s%s\n", indent, "", n.Name, "", named(n), trunc(n.Pane.Title, 50))
 		}
 	}
+}
+
+// named is the name the user gave a pane, in brackets so that it reads apart
+// from the message after it, or nothing for a pane with no name.
+func named(n *tree.Node) string {
+	if n.Label == "" {
+		return ""
+	}
+	return "[" + n.Label + "] "
 }
 
 // resolveView applies the precedence: the command line, then the environment

@@ -34,6 +34,7 @@ func stubOps(t *testing.T) *opsLog {
 		closeWorkspace:  func(id string) error { return rec("close-ws %s", id) },
 		createTab:       func(ws, dir string) error { return rec("tab %s %s", ws, dir) },
 		renamePane:      func(id, label string) error { return rec("rename-pane %s %q", id, label) },
+		renameAgent:     func(id, name string) error { return rec("rename-agent %s %q", id, name) },
 		closePane:       func(id string) error { return rec("close-pane %s", id) },
 		splitPane:       func(id, d, dir string) error { return rec("split %s %s %s", id, d, dir) },
 		moveToWorkspace: func(id, ws string) error { return rec("move %s to %s", id, ws) },

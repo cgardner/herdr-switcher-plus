@@ -109,6 +109,12 @@ too, with its terminal title in place of a message.
 
 ![The tree view, showing fabricated sessions](docs/images/tree.png)
 
+A pane you named shows its name after its kind, in bold and in the accent
+color, so it is the first thing the eye finds on the line. Both of Herdr's
+names count: the one `herdr pane rename` sets, and the one `herdr agent rename`
+sets. The pane's own name wins when a pane has both. `--tree --list` prints
+the name in brackets.
+
 Each level is ordered by the newest message below it. A repository with only
 one workspace does not get a level of its own. A closed group shows the status
 that most wants you, the newest age and the agent count.
@@ -121,12 +127,22 @@ that most wants you, the newest age and the agent count.
 | `→` `l` | open the group |
 | `space` | open or close the group |
 | `enter` | focus that pane, or open or close the group |
+| `/` | search, then `enter` to jump to the pane under the cursor, or `esc` to clear |
 | `e` `c` | open or close every group |
 | `W` | fold every workspace and worktree to one line, or open them all again |
 | `T` | fold every repository, which holds its worktrees, or open them all again |
 | `a` `b` `w` `i` `d` | show all, blocked, working, idle or done |
 | `r` | refresh, holding the cursor in place |
 | `q` `esc` | close |
+
+`/` searches the tree as you type. A pane matches when every word you type is
+in its name, its agent kind, its status, its terminal title, its last message,
+or the name of its workspace, repository or branch. Case does not matter. The
+tree keeps its order, opens every group that leads to a match, and puts the
+cursor on the first match, so `/` then a few letters of a pane's name then
+`enter` is the quickest jump. `↑` and `↓` move while you type. After `enter` on
+a group line, the search stays set and the title shows it, `/` edits it, and
+`esc` clears it before a second `esc` closes the switcher.
 
 `W` and `T` each touch one level and leave the other as it was. So `W` then
 `T` shows only the roots, and a second `T` opens the repositories with their
@@ -144,7 +160,7 @@ cursor, and `?` swaps the footer to list these keys.
 |---|---|
 | `n` | open a new workspace in the directory of that line, and ask for its name |
 | `t` | open a new tab in that workspace, or in the workspace of that pane |
-| `R` | rename that workspace, or name that pane |
+| `R` | rename that workspace, or name that pane, through whichever rename set its current name |
 | `x` | close that workspace or pane, after a `y` to confirm |
 | `v` `s` | split that pane to the right, or down |
 | `m` | move that pane to another workspace, beside another pane, or to a new workspace |

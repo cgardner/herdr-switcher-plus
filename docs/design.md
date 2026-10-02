@@ -100,6 +100,20 @@ command that focuses a pane by its ID. The `pane.focus` socket method does, so
 a shell pane is focused over the socket. An agent pane still goes through
 `agent focus`, the path the list uses.
 
+## Searching the tree
+
+The tree search matches the way the list filter does: case-insensitive
+substrings, with every word required, and no fuzzy match. A fuzzy match
+reorders the results and spreads a word across the line, and the reasons in
+`internal/ui/filter.go` apply here too.
+
+A pane's search text includes the names of every group above it. A search
+for a repository, a workspace or a branch therefore finds every pane below it,
+and the tree still shows only panes and the groups that lead to them. The
+cursor goes to the first match after each key, so that `enter` jumps without a
+move. Letters are text while the search line is open, so a management key
+cannot fire while you type.
+
 ## Managing the session from the tree
 
 The tree already knows the workspace, the tab, the pane and a directory for

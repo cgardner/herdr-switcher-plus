@@ -67,12 +67,12 @@ func newTree(t *testing.T, h int) TreeModel {
 	return next.(TreeModel)
 }
 
-// shown is the visible text of the tree lines, without the title, the pager
-// or the help.
+// shown is the visible text of the tree lines, without the title, the status
+// line, the pager or the help.
 func shown(m TreeModel) []string {
 	lines := strings.Split(visible(m.View()), "\n")
 	var out []string
-	for _, l := range lines[2 : len(lines)-2] {
+	for _, l := range lines[2 : len(lines)-3] {
 		if s := strings.TrimRight(l, " "); s != "" {
 			out = append(out, strings.TrimLeft(s, " ▌"))
 		}

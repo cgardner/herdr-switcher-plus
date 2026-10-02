@@ -350,11 +350,31 @@ func TestARepositoryPrefersItsMainCheckout(t *testing.T) {
 	}
 }
 
-func TestAPaneLabelNamesThePane(t *testing.T) {
+// A name the user gave sits beside the agent kind rather than replacing it.
+// The pane's own label wins over the agent's name.
+func TestAPaneKeepsItsKindAndCarriesItsName(t *testing.T) {
 	snap, rows := fixture()
 	snap.Panes[0].Label = "reviewer"
-	if got := find(Build(snap, rows, noBranch), "pane:w1:p1").Name; got != "reviewer" {
-		t.Errorf("name = %q", got)
+	rows[0].Agent.Name = "ignored"
+	rows[1].Agent.Name = "auth-fix"
+	roots := Build(snap, rows, noBranch)
+
+	cases := []struct {
+		id, name, label, title string
+		fromAgent              bool
+	}{
+		{"pane:w1:p1", "claude", "reviewer", "reviewer", false},
+		{"pane:w2:p1", "claude", "auth-fix", "auth-fix", true},
+		{"pane:w1:p2", "shell", "", "shell", false},
+	}
+	for _, c := range cases {
+		n := find(roots, c.id)
+		if n.Name != c.name || n.Label != c.label || n.Title() != c.title || n.AgentNamed != c.fromAgent {
+			t.Errorf("%s: name %q label %q title %q agent %v", c.id, n.Name, n.Label, n.Title(), n.AgentNamed)
+		}
+	}
+	if ws := find(roots, "ws:w4"); ws.Title() != ws.Name {
+		t.Errorf("a workspace's title is its name, got %q", ws.Title())
 	}
 }
 
@@ -368,5 +388,34 @@ func TestGroupsOfListsOneKindWithChildren(t *testing.T) {
 	got := GroupsOf(roots, KindWorkspace)
 	if len(got) != 5 || strings.Contains(strings.Join(got, " "), "ws:empty") {
 		t.Errorf("workspaces = %v", got)
+	}
+}
+
+func TestSearchKeepsMatchingPanesAndTheirGroups(t *testing.T) {
+	snap, rows := fixture()
+	snap.Panes[2].Label = "token-expiry"
+	roots := Build(snap, rows, noBranch)
+
+	cases := []struct{ query, want string }{
+		{"", outline(roots, nil)},
+		{"TOKEN", "platform\n  auth-service\n    claude\n"},
+		{"go test", "api-gateway\n  shell\n"},
+		{"platform shell", "platform\n  notifications\n    shell\n"},
+		{"msg w3:p1", "platform\n  billing\n    claude\n"},
+		{"done", "platform\n  billing\n    claude\n"},
+		{"dotfiles", "dotfiles\n  claude\n"},
+		{"nothing-like-this", ""},
+	}
+	for _, c := range cases {
+		if got := outline(Search(roots, c.query), nil); got != c.want {
+			t.Errorf("%q: got\n%swant\n%s", c.query, got, c.want)
+		}
+	}
+	// The copy leaves the full tree whole, with fresh summaries.
+	if got := len(find(roots, "repo:/git/platform").Children); got != 3 {
+		t.Errorf("the search changed the tree: %d workspaces", got)
+	}
+	if got := Search(roots, "token")[0].Agents; got != 1 {
+		t.Errorf("a searched group counts only its matches, got %d", got)
 	}
 }

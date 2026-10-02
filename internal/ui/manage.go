@@ -20,6 +20,7 @@ type herdrOps struct {
 	closeWorkspace  func(id string) error
 	createTab       func(workspaceID, dir string) error
 	renamePane      func(id, label string) error
+	renameAgent     func(paneID, name string) error
 	closePane       func(id string) error
 	splitPane       func(id, direction, dir string) error
 	moveToWorkspace func(id, workspaceID string) error
@@ -38,6 +39,7 @@ var ops = herdrOps{
 	closeWorkspace:  herdr.CloseWorkspace,
 	createTab:       herdr.CreateTab,
 	renamePane:      herdr.RenamePane,
+	renameAgent:     herdr.RenameAgent,
 	closePane:       herdr.ClosePane,
 	splitPane:       herdr.SplitPane,
 	moveToWorkspace: herdr.MovePaneToWorkspace,
@@ -204,7 +206,7 @@ func (m TreeModel) manageKey(key string) (TreeModel, tea.Cmd, bool) {
 		}
 		direction := map[string]string{"v": "right", "s": "down"}[key]
 		id, dir := n.Pane.PaneID, n.Dir
-		return m, perform(func() error { return ops.splitPane(id, direction, dir) }, "split "+n.Name+" "+direction), true
+		return m, perform(func() error { return ops.splitPane(id, direction, dir) }, "split "+n.Title()+" "+direction), true
 	}
 	return m, nil, false
 }
@@ -217,9 +219,14 @@ func (m *TreeModel) rename(n *tree.Node) {
 		m.prompt("rename workspace "+n.Name+":", "", n.Label, "renamed the workspace",
 			func(label string) error { return ops.renameWorkspace(id, label) })
 	case n.Kind == tree.KindPane:
-		id := n.Pane.PaneID
-		m.prompt("name pane "+n.Name+":", "no name", n.Label, "renamed the pane",
-			func(label string) error { return ops.renamePane(id, label) })
+		// A name set with `herdr agent rename` is changed the same way, so
+		// the two names never disagree.
+		id, rename := n.Pane.PaneID, ops.renamePane
+		if n.AgentNamed {
+			rename = ops.renameAgent
+		}
+		m.prompt("name pane "+n.Title()+":", "no name", n.Label, "renamed the pane",
+			func(label string) error { return rename(id, label) })
 	default:
 		m.say("a repository takes its name from git, so rename one of its workspaces")
 	}
@@ -233,13 +240,13 @@ func (m *TreeModel) closeNode(n *tree.Node) {
 		m.confirm(fmt.Sprintf("close workspace %s and its %s?", n.Name, count(len(n.Children), "pane")),
 			"closed "+n.Name, func() error { return ops.closeWorkspace(id) })
 	case n.Kind == tree.KindPane:
-		question := fmt.Sprintf("close pane %s in %s", n.Name, m.spaceName(n))
+		question := fmt.Sprintf("close pane %s in %s", n.Title(), m.spaceName(n))
 		if n.Agent != nil {
 			question += " and stop its agent"
 		}
 		id := n.Pane.PaneID
 		m.confirm(question+"?",
-			"closed "+n.Name, func() error { return ops.closePane(id) })
+			"closed "+n.Title(), func() error { return ops.closePane(id) })
 	default:
 		m.say("close a repository's workspaces one at a time")
 	}
@@ -321,6 +328,9 @@ func (m TreeModel) sessionKey(key string) (tea.Model, tea.Cmd) {
 // statusLine is the line above the pager: the open question, else the last
 // notice.
 func (m TreeModel) statusLine() string {
+	if m.search != nil {
+		return m.searchLine()
+	}
 	if a := m.ask; a != nil {
 		line := " " + styled(lipgloss.NewStyle(), accentColor, true, false).Render(a.question)
 		if a.input != nil {
@@ -329,6 +339,9 @@ func (m TreeModel) statusLine() string {
 		return line
 	}
 	if m.notice == "" {
+		if m.query != "" {
+			return m.searchLine()
+		}
 		return ""
 	}
 	if m.noticeErr {
@@ -340,6 +353,8 @@ func (m TreeModel) statusLine() string {
 // help is the footer for whatever has the keyboard.
 func (m TreeModel) help() string {
 	switch {
+	case m.search != nil:
+		return searchHelp
 	case m.ask != nil && m.ask.input != nil:
 		if m.ask.blank != "" {
 			return "enter save · esc cancel · blank gives " + m.ask.blank

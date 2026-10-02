@@ -36,6 +36,8 @@ func TestManageSendsTheSocketCalls(t *testing.T) {
 		{"tab", func() error { return CreateTab("w2", "/c/auth") }, `tab.create {"cwd":"/c/auth","focus":false,"workspace_id":"w2"}`},
 		{"name pane", func() error { return RenamePane("w2:p1", "tests") }, `pane.rename {"label":"tests","pane_id":"w2:p1"}`},
 		{"clear pane", func() error { return RenamePane("w2:p1", "") }, `pane.rename {"label":null,"pane_id":"w2:p1"}`},
+		{"name agent", func() error { return RenameAgent("w2:p1", "auth-fix") }, `agent.rename {"name":"auth-fix","target":"w2:p1"}`},
+		{"clear agent", func() error { return RenameAgent("w2:p1", "") }, `agent.rename {"name":null,"target":"w2:p1"}`},
 		{"close pane", func() error { return ClosePane("w2:p1") }, `pane.close {"pane_id":"w2:p1"}`},
 		{"split", func() error { return SplitPane("w2:p1", "down", "/c/auth") }, `pane.split {"cwd":"/c/auth","direction":"down","focus":false,"target_pane_id":"w2:p1"}`},
 		{"move to space", func() error { return MovePaneToWorkspace("w2:p1", "w3") }, `pane.move {"destination":{"type":"new_tab","workspace_id":"w3"},"focus":false,"pane_id":"w2:p1"}`},
