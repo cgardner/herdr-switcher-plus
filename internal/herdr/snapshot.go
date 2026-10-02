@@ -55,6 +55,10 @@ type Agent struct {
 	Title          string  `json:"terminal_title_stripped"`
 	StateChangeSeq uint64  `json:"state_change_seq"`
 	Session        Session `json:"agent_session"`
+
+	// Name is what `herdr agent rename` set. Herdr reports it here only,
+	// and not on the pane, whose own name is Pane.Label.
+	Name string `json:"name"`
 }
 
 // Worktree describes the git checkout behind a workspace. It is absent for a

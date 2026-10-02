@@ -10,6 +10,7 @@ package tree
 import (
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/cgardner/herdr-switcher-plus/internal/agents"
 	"github.com/cgardner/herdr-switcher-plus/internal/gitref"
@@ -38,8 +39,11 @@ type Node struct {
 	Name string
 
 	// Label is the name Herdr holds for a workspace or a pane, before Name
-	// adds context to it. It is empty for a pane the user never named.
-	Label string
+	// adds context to it. A pane takes its own label, else the name of its
+	// agent, and has none when the user never named it. AgentNamed marks a
+	// label that came from the agent, so a rename goes back the same way.
+	Label      string
+	AgentNamed bool
 
 	// Linked marks a workspace that is a linked worktree.
 	Linked bool
@@ -68,6 +72,15 @@ type Node struct {
 	// order breaks ties between nodes with no agent: the sidebar position
 	// for a workspace, and the snapshot order for a pane.
 	order int
+}
+
+// Title is how a message names the node: a pane's label when it has one, as
+// that is the name the user knows it by, else Name.
+func (n *Node) Title() string {
+	if n.Kind == KindPane && n.Label != "" {
+		return n.Label
+	}
+	return n.Name
 }
 
 // IsGroup reports whether the node can hold children.
@@ -133,6 +146,9 @@ func Build(snap *herdr.Snapshot, rows []agents.Row, branch func(string) string) 
 	}
 	for i, p := range panes {
 		n := &Node{Kind: KindPane, ID: "pane:" + p.PaneID, Pane: p, Agent: byPane[p.PaneID], Label: p.Label, WorkspaceID: p.WorkspaceID, Dir: paneDir(p), order: i}
+		if n.Label == "" && n.Agent != nil && n.Agent.Agent.Name != "" {
+			n.Label, n.AgentNamed = n.Agent.Agent.Name, true
+		}
 		n.Name = paneName(n)
 		ws := addSpace(p.WorkspaceID)
 		if ws.Dir == "" {
@@ -220,12 +236,9 @@ func paneDir(p herdr.Pane) string {
 	return p.Cwd
 }
 
-// paneName is the name the user gave a pane, else the agent kind for an agent
-// pane, and "shell" for anything else.
+// paneName is the agent kind for an agent pane, and "shell" for anything
+// else. A name the user gave stays in Label, so the kind is never lost.
 func paneName(n *Node) string {
-	if n.Pane.Label != "" {
-		return n.Pane.Label
-	}
 	if n.Pane.Agent != "" {
 		return n.Pane.Agent
 	}
@@ -302,6 +315,60 @@ func Filter(nodes []*Node, status agents.StatusFilter) []*Node {
 		}
 	}
 	return out
+}
+
+// Search keeps the panes that match a query and the groups that lead to
+// them, the way Filter does for a status. It returns a copy.
+//
+// It matches as the list filter does: case-insensitive substrings, with every
+// space-separated term required. A pane's text is its own name, kind, status,
+// terminal title and last message, plus the names of every group above it, so
+// that a repository, a workspace or a branch finds all of its panes. An empty
+// query keeps everything.
+func Search(nodes []*Node, query string) []*Node {
+	terms := strings.Fields(strings.ToLower(query))
+	if len(terms) == 0 {
+		return nodes
+	}
+	return search(nodes, terms, "")
+}
+
+func search(nodes []*Node, terms []string, above string) []*Node {
+	var out []*Node
+	for _, n := range nodes {
+		if n.Kind == KindPane {
+			if matches(above+" "+searchText(n), terms) {
+				out = append(out, n)
+			}
+			continue
+		}
+		if kids := search(n.Children, terms, above+" "+n.Name+" "+n.Label); len(kids) > 0 {
+			c := *n
+			c.Children = kids
+			summarize(&c)
+			out = append(out, &c)
+		}
+	}
+	return out
+}
+
+// searchText is what a pane offers a search.
+func searchText(n *Node) string {
+	parts := []string{n.Name, n.Label, n.Pane.Title, n.Pane.Status}
+	if r := n.Agent; r != nil {
+		parts = append(parts, r.Agent.Status, r.Last.Text)
+	}
+	return strings.Join(parts, " ")
+}
+
+func matches(text string, terms []string) bool {
+	lower := strings.ToLower(text)
+	for _, t := range terms {
+		if !strings.Contains(lower, t) {
+			return false
+		}
+	}
+	return true
 }
 
 // Line is one visible row: a node and how deep it sits.
