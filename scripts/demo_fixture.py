@@ -27,6 +27,21 @@ SHELLS = [
 # Agent names, as `herdr agent rename` sets them, which the tree highlights.
 AGENT_NAMES = {"auth-service": "token-expiry"}
 
+# Tab names, as `herdr tab rename` sets them. A tab left alone keeps a number
+# for its label, which the switcher reads as no name.
+TAB_NAMES = {"billing": "Invoices"}
+
+# Pane names on agents, as `herdr pane rename` sets them.
+PANE_NAMES = {"auth-service": "oauth"}
+
+# A second agent in a space that already has one, in a tab of its own:
+# (space, tab name, minutes ago, status, role, message). Without the names, the
+# two rows of that space would read the same.
+EXTRA_AGENTS = [
+    ("billing", "Reports", 20, "idle", "assistant",
+     "Monthly report now groups by region. Totals match the ledger."),
+]
+
 # (space, repo, linked, branch, minutes ago, status, role, message)
 SESSIONS = [
     ("api-gateway", "api-gateway", False, "main", 0.2, "working", "assistant",
@@ -48,7 +63,22 @@ SESSIONS = [
 ]
 
 now = time.time()
-agents, workspaces, shells = [], [], []
+agents, workspaces, shells, tabs = [], [], [], []
+
+def write_transcript(checkout, session_id, mins, role, text):
+    """The transcript the age and the preview come from."""
+    project = os.path.join(HOME, ".claude", "projects", checkout.replace("/", "-"))
+    os.makedirs(project, exist_ok=True)
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now - mins * 60)) + ".000Z"
+    with open(os.path.join(project, session_id + ".jsonl"), "w") as f:
+        f.write(json.dumps({
+            "type": role, "timestamp": stamp,
+            "message": {"role": role, "content": text},
+        }) + "\n")
+        # A bookkeeping record after the message, which is what makes the file
+        # modification time useless and the transcript scan necessary.
+        f.write(json.dumps({"type": "artifact-autoreact-ledger", "v": 1}) + "\n")
+
 
 for i, (space, repo, linked, branch, mins, status, role, text) in enumerate(SESSIONS):
     ws_id = "w%d" % (i + 1)
@@ -85,6 +115,10 @@ for i, (space, repo, linked, branch, mins, status, role, text) in enumerate(SESS
     })
     if space in AGENT_NAMES:
         agents[-1]["name"] = AGENT_NAMES[space]
+    if space in PANE_NAMES:
+        agents[-1]["label"] = PANE_NAMES[space]
+    tabs.append({"tab_id": "%s:t1" % ws_id, "workspace_id": ws_id,
+                 "label": TAB_NAMES.get(space, "1"), "number": 1})
 
     for n, (shell_space, title, label) in enumerate(SHELLS):
         if shell_space == space:
@@ -96,23 +130,27 @@ for i, (space, repo, linked, branch, mins, status, role, text) in enumerate(SESS
             if label:
                 shells[-1]["label"] = label
 
-    # The transcript the age and the preview come from.
-    project = os.path.join(HOME, ".claude", "projects", checkout.replace("/", "-"))
-    os.makedirs(project, exist_ok=True)
-    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now - mins * 60)) + ".000Z"
-    with open(os.path.join(project, session_id + ".jsonl"), "w") as f:
-        f.write(json.dumps({
-            "type": role, "timestamp": stamp,
-            "message": {"role": role, "content": text},
-        }) + "\n")
-        # A bookkeeping record after the message, which is what makes the file
-        # modification time useless and the transcript scan necessary.
-        f.write(json.dumps({"type": "artifact-autoreact-ledger", "v": 1}) + "\n")
+    write_transcript(checkout, session_id, mins, role, text)
+
+for k, (space, tab, mins, status, role, text) in enumerate(EXTRA_AGENTS):
+    ws = next(w for w in workspaces if w["label"] == space)
+    ws_id, checkout = ws["workspace_id"], os.path.join(CHECKOUTS, space)
+    session_id = str(uuid.uuid4())
+    tab_id = "%s:t%d" % (ws_id, 3 + k)
+    agents.append({
+        "agent": "claude", "agent_status": status, "cwd": checkout,
+        "pane_id": "%s:p%d" % (ws_id, 9 + k), "tab_id": tab_id,
+        "workspace_id": ws_id, "terminal_title_stripped": space,
+        "state_change_seq": 50 - k,
+        "agent_session": {"kind": "id", "value": session_id},
+    })
+    tabs.append({"tab_id": tab_id, "workspace_id": ws_id, "label": tab, "number": 3 + k})
+    write_transcript(checkout, session_id, mins, role, text)
 
 os.makedirs(os.path.join(FIXTURE, "config"), exist_ok=True)
 os.makedirs(os.path.join(FIXTURE, "state"), exist_ok=True)
 with open(os.path.join(FIXTURE, "snapshot.json"), "w") as f:
     json.dump({"id": "demo", "result": {"snapshot": {
-        "agents": agents, "workspaces": workspaces, "tabs": [],
+        "agents": agents, "workspaces": workspaces, "tabs": tabs,
         "panes": agents + shells, "focused_pane_id": "w1:p1",
     }}}, f)

@@ -191,6 +191,46 @@ Nothing moves focus. The switcher stays open, the tree reads the session again
 after each change, and the line above the pager says what happened or why
 Herdr refused.
 
+## Naming your sessions
+
+Two sessions in one space read the same unless something tells them apart. The
+list adds a name to the end of the row, after a `▸`:
+
+![Two sessions in one space, told apart by tab name](docs/images/names.png)
+
+The name is the pane name if the pane has one, and otherwise the name of its
+tab. A tab you never named keeps a number, and a number is not shown. A name
+that repeats the space name is not shown either.
+
+To set a name:
+
+```bash
+herdr tab rename w4X:t4 "Bear Den"     # the tab the session runs in
+herdr pane rename w4X:p7 "Bear Den"    # or the pane itself, and it wins
+herdr pane rename w4X:p7               # no name clears it
+```
+
+The pane ID is the second column of the list. In the tree view, select a pane
+and press `R` to name it. The tree has no key for a tab, so use the command
+above. The tree shows the same name in bold after the status, and both views
+search it, so `/den` finds both sessions.
+
+![The tree view, with the same names](docs/images/tree-names.png)
+
+To place the name yourself, use the `name` token in a row of `[ui]`:
+
+```toml
+[ui]
+rows = [
+  ["age", "label", "state_icon", "state_text"],
+  ["name", "role", "message"],
+]
+```
+
+`label` already ends with the name, so a layout that uses `name` as well shows
+it twice. Use `space` in place of `label` to avoid that. To try this on
+invented sessions, run `make demo`.
+
 ## Sort modes
 
 `s` cycles forward and `S` cycles back. The mode is remembered for the next
@@ -246,7 +286,7 @@ herdr-switcher-plus --list --status w
 
 ## Filtering by text
 
-`/` filters by case-insensitive substring across space name, repository,
+`/` filters by case-insensitive substring across space name, pane or tab name, repository,
 branch, status, agent kind, pane title, working directory, pane ID and the last
 message text. The repository and branch stay searchable on rows whose label
 leaves them out as implied, so `/platform` finds every worktree of it. Every
