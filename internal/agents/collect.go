@@ -31,6 +31,14 @@ type Row struct {
 	Linked bool
 	Branch string
 
+	// PaneName is the name the user gave the pane, empty until they give
+	// one. It tells apart sessions that share a space.
+	PaneName string
+
+	// TabName is the name of the tab holding the pane, empty for a tab left
+	// with its number. Sessions are often told apart by tab rather than pane.
+	TabName string
+
 	Last    transcript.Message
 	HasLast bool
 }
@@ -65,7 +73,7 @@ func CollectSnapshot() (*herdr.Snapshot, []Row, error) {
 	rows := make([]Row, 0, len(snap.Agents))
 	for _, a := range snap.Agents {
 		label, number := snap.Workspace(a.WorkspaceID)
-		r := Row{Agent: a, Space: label, SpaceNumber: number}
+		r := Row{Agent: a, Space: label, SpaceNumber: number, PaneName: snap.PaneLabel(a.PaneID), TabName: snap.TabLabel(a.TabID)}
 		if w := snap.FindWorkspace(a.WorkspaceID); w != nil && w.Worktree != nil {
 			r.Repo = w.Worktree.RepoName
 			r.Linked = w.Worktree.IsLinked
@@ -136,6 +144,14 @@ func itoa(n int) string {
 // telling the reader nothing.
 var defaultBranches = map[string]bool{"main": true, "master": true}
 
+// Name is what the user called this session: the pane name, else the tab name.
+func (r Row) Name() string {
+	if r.PaneName != "" {
+		return r.PaneName
+	}
+	return r.TabName
+}
+
 // Label names the row: the space, plus whatever context is not already implied
 // by it.
 //
@@ -161,6 +177,12 @@ func (r Row) Label() string {
 
 	if r.Branch != "" && r.Branch != r.Space && !defaultBranches[r.Branch] {
 		label += "  @" + r.Branch
+	}
+
+	// A name is a choice the user made to tell sessions apart, so it is
+	// always surprising and always shown, unless it repeats the space name.
+	if n := r.Name(); n != "" && n != r.Space {
+		label += "  ▸ " + n
 	}
 	return label
 }

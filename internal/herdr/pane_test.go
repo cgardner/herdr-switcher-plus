@@ -177,3 +177,29 @@ func TestNotifyShowsATitleAndBody(t *testing.T) {
 		t.Errorf("calls = %v", *calls)
 	}
 }
+
+func TestPaneLabelFindsTheNameOrNothing(t *testing.T) {
+	s := &Snapshot{Panes: []Pane{{PaneID: "w1:p1", Label: "api"}, {PaneID: "w1:p2"}}}
+	if got := s.PaneLabel("w1:p1"); got != "api" {
+		t.Errorf("got %q", got)
+	}
+	if got := s.PaneLabel("w1:p2"); got != "" {
+		t.Errorf("unnamed pane gave %q", got)
+	}
+	if got := s.PaneLabel("w9:p9"); got != "" {
+		t.Errorf("missing pane gave %q", got)
+	}
+}
+
+func TestTabLabelIgnoresANumberedTab(t *testing.T) {
+	s := &Snapshot{Tabs: []Tab{{TabID: "t1", Label: "Bear Den", Number: 4}, {TabID: "t2", Label: "1", Number: 4}}}
+	if got := s.TabLabel("t1"); got != "Bear Den" {
+		t.Errorf("got %q", got)
+	}
+	if got := s.TabLabel("t2"); got != "" {
+		t.Errorf("numbered tab gave %q", got)
+	}
+	if got := s.TabLabel("t9"); got != "" {
+		t.Errorf("missing tab gave %q", got)
+	}
+}

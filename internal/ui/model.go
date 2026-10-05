@@ -130,6 +130,7 @@ func (i item) widthAt(row, token int) int {
 func (i item) FilterValue() string {
 	return strings.Join([]string{
 		i.row.Space,
+		i.row.Name(),
 		i.row.Repo,
 		i.row.Branch,
 		i.row.Agent.Status,

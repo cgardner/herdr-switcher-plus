@@ -96,6 +96,9 @@ var tokens = map[string]tokenDef{
 	"pane": {Description: "the Herdr pane ID, such as w5:p1E", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: r.Agent.PaneID, fg: previewColorFor(selected)}
 	}},
+	"name": {Description: "the name you gave the pane, else the name of its tab", render: func(r agents.Row, _ time.Time, selected bool) cell {
+		return cell{text: r.Name(), fg: textColorFor(selected)}
+	}},
 	"cwd": {Description: "the working directory, with your home written as a tilde", render: func(r agents.Row, _ time.Time, selected bool) cell {
 		return cell{text: shortenHome(r.Agent.Cwd), fg: previewColorFor(selected)}
 	}},

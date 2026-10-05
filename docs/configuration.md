@@ -45,6 +45,7 @@ below the name it belongs to rather than under the age.
 | `cwd` | the working directory, with your home written as a tilde | — |
 | `label` | the space, plus the repository and branch when not already implied | — |
 | `message` | the last message in the session | — |
+| `name` | the name you gave the pane, else the name of its tab | — |
 | `pane` | the Herdr pane ID, such as w5:p1E | — |
 | `repo` | the repository name, empty when the space is not a checkout | — |
 | `role` | a mark showing whether you or the agent spoke last | — |

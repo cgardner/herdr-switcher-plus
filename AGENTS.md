@@ -121,7 +121,7 @@ reference tables `make docs` writes. A token may carry a number, which is what
 `gt` and `lt` compare against; only `age` does, in minutes.
 
 <!-- BEGIN GENERATED: token-count -->
-There are 13 tokens, listed in `docs/configuration.md`.
+There are 14 tokens, listed in `docs/configuration.md`.
 <!-- END GENERATED: token-count -->
 
 Bold and Dim are `*bool` throughout. Herdr states that an omitted style field

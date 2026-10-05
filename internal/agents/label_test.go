@@ -66,3 +66,30 @@ func TestLabelShowsADetachedHead(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+// A named pane is how the user tells sessions in one space apart, so the name
+// always reaches the label.
+func TestLabelShowsThePaneName(t *testing.T) {
+	r := labelled("billing", "billing", "main", false)
+	r.PaneName = "api"
+	if got := r.Label(); got != "billing  ▸ api" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// Sessions are often told apart by tab, so an unnamed pane takes its tab name.
+func TestLabelFallsBackToTheTabName(t *testing.T) {
+	r := labelled("Second Brain", "", "", false)
+	r.TabName = "Bear Den"
+	if got := r.Label(); got != "Second Brain  ▸ Bear Den" {
+		t.Errorf("got %q", got)
+	}
+	r.PaneName = "api"
+	if got := r.Label(); got != "Second Brain  ▸ api" {
+		t.Errorf("pane name must win, got %q", got)
+	}
+	r.PaneName, r.TabName = "", "Second Brain"
+	if got := r.Label(); got != "Second Brain" {
+		t.Errorf("a name equal to the space must stay silent, got %q", got)
+	}
+}

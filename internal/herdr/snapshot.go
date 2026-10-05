@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -104,12 +105,48 @@ type Pane struct {
 	Label string `json:"label"`
 }
 
+// Tab is one tab of a workspace. Herdr gives an unnamed tab a number as its
+// label.
+type Tab struct {
+	TabID  string `json:"tab_id"`
+	Label  string `json:"label"`
+	Number int    `json:"number"`
+}
+
 // Snapshot is the subset of session.snapshot this plugin reads.
 type Snapshot struct {
 	Agents        []Agent     `json:"agents"`
 	Panes         []Pane      `json:"panes"`
 	Workspaces    []Workspace `json:"workspaces"`
+	Tabs          []Tab       `json:"tabs"`
 	FocusedPaneID string      `json:"focused_pane_id"`
+}
+
+// PaneLabel returns the name the user gave a pane, or an empty string when the
+// pane has none or is missing from the snapshot.
+func (s *Snapshot) PaneLabel(id string) string {
+	for _, p := range s.Panes {
+		if p.PaneID == id {
+			return p.Label
+		}
+	}
+	return ""
+}
+
+// TabLabel returns the name the user gave a tab, or an empty string when the
+// tab is unnamed or missing from the snapshot. Herdr keeps the number an
+// unnamed tab was born with, even after tabs close, so any numeric label is
+// treated as no name.
+func (s *Snapshot) TabLabel(id string) string {
+	for _, t := range s.Tabs {
+		if t.TabID == id {
+			if _, err := strconv.Atoi(t.Label); err == nil {
+				return ""
+			}
+			return t.Label
+		}
+	}
+	return ""
 }
 
 // FindWorkspace returns the workspace with this ID, or nil.
