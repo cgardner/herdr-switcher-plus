@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/cgardner/herdr-switcher-plus/compare/v0.3.0...v0.4.0) (2026-10-05)
+
+
+### Features
+
+* show the pane or tab name on each switcher row ([17333c4](https://github.com/cgardner/herdr-switcher-plus/commit/17333c4853f6922cf4c220bc0c06768815060edb))
+
+
+### Bug Fixes
+
+* show the tab name on agent rows in the tree ([6b45451](https://github.com/cgardner/herdr-switcher-plus/commit/6b45451764605167243b5b2cc7c59ae4c89e92e9))
+
 ## [0.3.0](https://github.com/cgardner/herdr-switcher-plus/compare/v0.2.0...v0.3.0) (2026-10-02)
 
 
