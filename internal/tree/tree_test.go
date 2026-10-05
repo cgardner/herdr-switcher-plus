@@ -419,3 +419,10 @@ func TestSearchKeepsMatchingPanesAndTheirGroups(t *testing.T) {
 		t.Errorf("a searched group counts only its matches, got %d", got)
 	}
 }
+
+func TestSearchFindsAPaneByItsTabName(t *testing.T) {
+	n := &Node{Kind: KindPane, Name: "claude", Agent: &agents.Row{Space: "billing", TabName: "Reports"}}
+	if got := Search([]*Node{n}, "reports"); len(got) != 1 {
+		t.Errorf("a tab name must be searchable, got %d matches", len(got))
+	}
+}

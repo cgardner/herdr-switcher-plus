@@ -83,6 +83,19 @@ func (n *Node) Title() string {
 	return n.Name
 }
 
+// Display is the name the tree draws on a pane: its label, else the name of
+// its tab, which the list shows too. A tab name that repeats the space draws
+// nothing. Label stays as it is, because a rename acts on it and not on the tab.
+func (n *Node) Display() string {
+	if n.Label != "" {
+		return n.Label
+	}
+	if r := n.Agent; r != nil && r.TabName != "" && r.TabName != r.Space {
+		return r.TabName
+	}
+	return ""
+}
+
 // IsGroup reports whether the node can hold children.
 func (n *Node) IsGroup() bool { return n.Kind != KindPane }
 
@@ -354,7 +367,7 @@ func search(nodes []*Node, terms []string, above string) []*Node {
 
 // searchText is what a pane offers a search.
 func searchText(n *Node) string {
-	parts := []string{n.Name, n.Label, n.Pane.Title, n.Pane.Status}
+	parts := []string{n.Name, n.Display(), n.Pane.Title, n.Pane.Status}
 	if r := n.Agent; r != nil {
 		parts = append(parts, r.Agent.Status, r.Last.Text)
 	}

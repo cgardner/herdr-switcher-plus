@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cgardner/herdr-switcher-plus/internal/agents"
 	"github.com/cgardner/herdr-switcher-plus/internal/tree"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -97,5 +98,18 @@ func TestMessagesCallAPaneByItsName(t *testing.T) {
 	m = drive(m, "m")
 	if got := visible(lineWith(m, "Which do you want?")); !strings.Contains(got, "beside claude   auth-fix  ‹ Which do you want?") {
 		t.Errorf("move panel line = %q", got)
+	}
+}
+
+// An agent pane in a named tab shows the tab name, as the list does.
+func TestThePaneShowsItsTabName(t *testing.T) {
+	seg := func(text, fg string, bold, dim bool) string { return text }
+	row := &agents.Row{Space: "billing", TabName: "Reports"}
+	if got := nameSeg(&tree.Node{Kind: tree.KindPane, Agent: row}, seg); got != "Reports  " {
+		t.Errorf("got %q", got)
+	}
+	same := &agents.Row{Space: "billing", TabName: "billing"}
+	if nameSeg(&tree.Node{Kind: tree.KindPane, Agent: same}, seg) != "" {
+		t.Error("a tab named after the space draws nothing")
 	}
 }

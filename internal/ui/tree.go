@@ -479,12 +479,13 @@ func (m TreeModel) renderLine(l tree.Line, selected bool) string {
 // nameSeg draws the name the user gave a pane, in bold and in the accent
 // color, so that it stands out from the kind and the message beside it. It is
 // the name a user scans for, so it gets the strongest style on the line. A
-// pane with no name draws nothing.
+// pane with no name draws its tab name, and a pane with neither draws nothing.
 func nameSeg(n *tree.Node, seg func(string, string, bool, bool) string) string {
-	if n.Label == "" {
+	name := n.Display()
+	if name == "" {
 		return ""
 	}
-	return seg(n.Label, accentColor, true, false) + seg("  ", "", false, false)
+	return seg(name, accentColor, true, false) + seg("  ", "", false, false)
 }
 
 // summary is what a closed group shows after its name: the status that most
