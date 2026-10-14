@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/cgardner/herdr-switcher-plus/compare/v0.4.0...v0.4.1) (2026-10-14)
+
+
+### Tests
+
+* add an end-to-end suite that runs the built binary ([752b98b](https://github.com/cgardner/herdr-switcher-plus/commit/752b98b3e59c4118df5248f0f2320d8551fd80c4))
+
 ## [0.4.0](https://github.com/cgardner/herdr-switcher-plus/compare/v0.3.0...v0.4.0) (2026-10-05)
 
 
