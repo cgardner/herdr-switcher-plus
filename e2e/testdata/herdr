@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# A stand-in for the Herdr CLI, for the end-to-end suite.
+#
+# It records every call, one line each with the arguments split by tabs, and it
+# answers the few commands the switcher uses. Nothing here reaches a real
+# Herdr, so a test cannot move, rename or close a real pane.
+#
+# FAKE_HERDR_FAIL    fail any call whose arguments start with this text.
+# FAKE_HERDR_FAIL_TEXT  what a failed call prints on stderr.
+dir="$(cd "$(dirname "$0")" && pwd)"
+printf '%s\t' "$@" >> "$dir/calls.log"
+printf '\n' >> "$dir/calls.log"
+
+if [ -n "${FAKE_HERDR_FAIL:-}" ] && [[ "$*" == "$FAKE_HERDR_FAIL"* ]]; then
+  echo "${FAKE_HERDR_FAIL_TEXT:-{\"error\":{\"code\":\"injected\",\"message\":\"injected failure\"}}}" >&2
+  exit 1
+fi
+
+case "$1 $2" in
+  "api snapshot")
+    cat "$dir/snapshot.json"
+    ;;
+  "session list")
+    d="$HOME/.config/herdr"
+    printf '{"sessions":[%s,%s,%s]}\n' \
+      "{\"name\":\"default\",\"default\":true,\"running\":true,\"session_dir\":\"$d\",\"socket_path\":\"$HERDR_SOCKET_PATH\"}" \
+      "{\"name\":\"spike\",\"default\":false,\"running\":true,\"session_dir\":\"$d/sessions/spike\",\"socket_path\":\"$d/sessions/spike/herdr.sock\"}" \
+      "{\"name\":\"release-0.2\",\"default\":false,\"running\":false,\"session_dir\":\"$d/sessions/release-0.2\",\"socket_path\":\"$d/sessions/release-0.2/herdr.sock\"}"
+    ;;
+esac
+exit 0
