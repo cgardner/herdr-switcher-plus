@@ -56,8 +56,16 @@ docs: ## Regenerate the reference tables from the registries
 docs-check: ## Fail when the generated documentation is out of date
 	@go run ./tools/gendocs -check
 
+# The end-to-end suite builds the binary and runs it as a process, with a fake
+# Herdr CLI and a fake Herdr socket. It needs python3, which builds the fixture,
+# and no real Herdr session. See e2e/env_test.go.
+.PHONY: e2e
+e2e: ## Run the binary end to end, on a pseudo terminal
+	@go vet -tags e2e ./e2e
+	@go test -tags e2e -count=1 ./e2e
+
 .PHONY: ci
-ci: lint docs-check cover ## Everything the CI workflow runs
+ci: lint docs-check cover e2e ## Everything the CI workflow runs
 
 .PHONY: dist
 dist: ## Cross-compile a release binary for every platform
@@ -100,5 +108,5 @@ clean: ## Remove build output
 
 .PHONY: help
 help: ## List the targets
-	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
+	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n", $$1, $$2}'

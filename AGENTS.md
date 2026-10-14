@@ -217,6 +217,25 @@ Set the window size with `TIOCSWINSZ` after forking, or the list renders empty.
 Call `lipgloss.SetColorProfile(termenv.TrueColor)` in a unit test, or lipgloss
 strips every sequence and color assertions pass against nothing.
 
+## The end-to-end suite
+
+`make e2e` runs the built binary against a fake Herdr CLI (`e2e/testdata/herdr`)
+and a fake Herdr socket, on a pseudo terminal. It sits behind the `e2e` build
+tag, and `make ci` runs it after the coverage check. `CONTRIBUTING.md` lists the
+parts. These rules come from the work of building it:
+
+- The fixture is `scripts/demo_fixture.py`. Never write a second set of invented
+  sessions, and never point a test at a real one. The environment of a test
+  starts empty on purpose, because an inherited `HERDR_SOCKET_PATH` reaches a
+  real session.
+- A unix socket path holds about 100 bytes on macOS, and `t.TempDir` is too
+  long for one. The fake socket lives in a directory under `/tmp`.
+- A test reads the virtual screen, not the raw output. Bubble Tea repaints with
+  diffs, so the raw output cannot show that something went away.
+- Send `esc` once to leave a filter, because a second `esc` quits the list.
+- Colour assertions need `COLORTERM=truecolor`, or the colour is downgraded and
+  the sequence differs.
+
 ## Rendering
 
 The delegate composes each row segment by segment and attaches the selection

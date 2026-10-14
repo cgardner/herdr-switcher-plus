@@ -4,7 +4,8 @@
 
 ```bash
 make build   # bin/herdr-switcher-plus
-make ci      # gofmt, vet, generated docs, tests, coverage floor
+make ci      # gofmt, vet, generated docs, tests, coverage floor, e2e
+make e2e     # run the built binary on a pseudo terminal, against a fake Herdr
 make link    # build, then link this working copy into the running Herdr session
 make run     # print the agent list without opening a pane
 ```
@@ -48,6 +49,31 @@ Adding a token means one registry entry carrying its description. Run
 `make docs`, and the reference updates everywhere. `make ci` fails when the
 files are out of date, so the documentation cannot drift from the code without
 CI noticing.
+
+## End-to-end tests
+
+`make e2e` builds the binary and runs it as Herdr does: a process with the
+Herdr environment set, a Herdr CLI on `HERDR_BIN_PATH` and a Herdr socket on
+`HERDR_SOCKET_PATH`. The unit tests replace every seam. These replace none, so
+they prove that the seams join up. The tests are in `e2e/`, behind the `e2e`
+build tag, so `go test ./...` does not run them.
+
+- `e2e/testdata/herdr` is the fake CLI. It records every call and answers the
+  snapshot and the session list. `FAKE_HERDR_FAIL=<args>` makes a call fail.
+- `e2e/socket_test.go` is the fake socket. It records each request, and it
+  fails a method on demand.
+- `e2e/term_test.go` runs the binary on a pseudo terminal. It answers the two
+  startup questions, and it keeps a virtual screen so that a test reads what is
+  visible now, not what was ever printed.
+- The sessions come from `scripts/demo_fixture.py`, so they are invented.
+
+The suite needs python3 and no Herdr session. It starts with an empty
+environment, so a run from inside a Herdr pane cannot reach that pane's
+session. `E2E_BIN=<path> make e2e` tests a given binary, such as a release
+asset, in place of a fresh build.
+
+Add a test here when a change crosses a seam: a new flag, a new key, a new
+call to Herdr. A change inside one package belongs in that package's tests.
 
 ## Coverage
 
